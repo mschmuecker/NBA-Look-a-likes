@@ -75,6 +75,14 @@
         }
     </div>
 }
+else
+{
+    @if(searched)
+    {
+        <p>No players found</p>
+    }
+
+}
 @if (showCompareModal && comparisonPlayer is not null && selectedPlayer is not null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1050;">
@@ -106,6 +114,7 @@
     private List<Player> similarPlayers = new();
     private Player? comparisonPlayer = new();
     private bool showCompareModal = false;
+    private bool searched = false;
 
     private Dictionary<StatCategory, bool> statEnabled = new();
     private Dictionary<StatCategory, double> statWeights = new();
@@ -136,14 +145,7 @@
                                  .ToDictionary(kv => kv.Key, kv => kv.Value);
 
         similarPlayers = await PlayerService.GetSimilarPlayersByStatsAsync(selectedPlayer.PlayerID, statEnabled, weights);
-    }
-    private Task onPlayerChanged(ChangeEventArgs args)
-    {
-        throw new NotImplementedException();
-    }
-    private Task OnPlayerChanged(ChangeEventArgs args)
-    {
-        throw new NotImplementedException();
+        searched = true;
     }
   
     private Task<IEnumerable<Player>> SearchPlayers(string searchText)

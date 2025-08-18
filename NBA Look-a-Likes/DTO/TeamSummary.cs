@@ -7,10 +7,10 @@ namespace NBA_App.DTO
         public int? GamesPlayed {  get; set; }
         public int? Wins { get; set; } = 0;
         public int? Losses { get; set; } = 0;
-        public double? WinPercentage { get => Wins / GamesPlayed; }
+        public double? WinPercentage => GamesPlayed == 0 ? null: (double)Wins / GamesPlayed;
         public double? PPG { get; set; } = 0;
-        public double? APG { get; set; } = 0;
-        public double? RPG { get; set; } = 0;
-        public short? Season { get; set; }
+        public double? PointsAllowed { get; set; } = 0;
+      
+        public int? Season { get; set; }
     }
 }

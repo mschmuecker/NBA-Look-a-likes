@@ -4,6 +4,7 @@
 @using NBA_App.Model
 @rendermode InteractiveServer
 @inject TeamDataAccess TeamDataAccess
+@inject NavigationManager navigationManager
 
 <h3>Team Overview</h3>
 
@@ -20,22 +21,73 @@
 }
 else
 {
-    <div class="card mb-3">
+    <div class="card shadow-sm border-0 mb-3">
         <div class="card-body">
-            <h4>@team.TeamCity @team.TeamName (@team.TeamAbbrev)</h4>
-            <p>
-                League: @team.League<br />
-                Founded: @team.History<br />
-            </p>
+            <!-- Header -->
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="d-flex align-items-center gap-3">
+                    <!-- Monogram / logo placeholder -->
+                    <div class="rounded-circle bg-light d-flex align-items-center justify-content-center"
+                         style="width:56px;height:56px;">
+                        <span class="fw-bold text-muted">@team.TeamAbbrev</span>
+                    </div>
+                    <div>
+                        <h3 class="mb-0">@team.TeamCity @team.TeamName <span class="text-muted">(@team.TeamAbbrev)</span></h3>
+                        <div class="text-muted">League: @team.League</div>
+                    </div>
+                </div>
+
+                <!-- All-time record pill -->
+                <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">
+                    @record.Wins-@record.Losses
+                    @if (record.WinPercentage.HasValue)
+                    {
+                        <span class="ms-1">(@record.WinPercentage.Value.ToString("P1"))</span>
+                    }
+                </span>
+            </div>
+
+            <hr class="my-3" />
+
+            <!-- Team history -->
+            <h6 class="text-uppercase text-muted mb-2">Team History</h6>
+            @if (team.History != null && team.History.Any())
+            {
+                <ul class="list-group list-group-flush">
+                    @foreach (var h in team.History)
+                    {
+                        var ended = h.SeasonActiveTill < DateTime.Now.Year;
+                        <li class="list-group-item px-0 d-flex justify-content-between align-items-start">
+                            <div class="me-3">
+                                <div class="fw-semibold">@h.TeamCity</div>
+                                <div class="small text-muted">
+                                    Founded: @h.SeasonFounded
+                                    <span class="mx-1">•</span>
+                                    Name: @h.TeamName
+                                    @if (ended)
+                                    {
+                                        <span class="mx-1">•</span>
+                                        <span class="text-danger-emphasis">Ended: @h.SeasonActiveTill</span>
+                                    }
+                                </div>
+                            </div>
+                            <span class="badge rounded-pill @(ended ? "bg-secondary" : "bg-success")">
+                                @(ended ? "Former" : "Active")
+                            </span>
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <div class="text-muted small">No history available.</div>
+            }
         </div>
     </div>
 
-    <h5>All-Time Record</h5>
-    <p>
-        Games: @record.GamesPlayed | Wins: @record.Wins | Losses: @record.Losses | Win %: @record.WinPercentage.ToString("P1")
-    </p>
 
-    <h5>Top Seasons</h5>
+    <h5>Seasons</h5>
+    <div class="card">
     <table class="table table-sm">
         <thead>
             <tr>
@@ -43,28 +95,53 @@ else
                 <th>Wins</th>
                 <th>Losses</th>
                 <th>Win %</th>
+                <th>Points Per Game</th>
+                <th>Points Allowed per Game</th>
+                
             </tr>
         </thead>
         <tbody>
-            @foreach (var s in topSeasons)
+            @foreach (var s in seasonRecords.OrderByDescending(r => r.Season))
             {
                 <tr>
                     <td>@s.Season</td>
                     <td>@s.Wins</td>
                     <td>@s.Losses</td>
-                    <td>@s.WinPercentage.ToString("P1")</td>
+                    <td>@s.WinPercentage?.ToString("P1")</td>
+                    <td>@s.PPG?.ToString("0.0")</td>
+                    <td>@s.PointsAllowed?.ToString("0.0")</td>
+                    
                 </tr>
             }
         </tbody>
     </table>
+    </div>
 
-    <h5>Top Players (Career PPG)</h5>
-    <ul>
-        @foreach (var p in topPlayers)
+    <h5>Players on Team</h5>
+    <div class="card">
+    <div class="search-overlay-list position-absolute bg-white shadow rounded w-100 z-3">
+        @foreach (var player in players)
         {
-            <li><a href="/player/@p.PlayerID">@p.FirstName @p.LastName</a> – PPG: @p.PPG.ToString("0.0")</li>
+            <button type="button"
+                    class="list-group-item list-group-item-action text-start search-result-item"
+                    @onclick="() => GoToPlayerPage(player.PlayerID)">
+                <div class="fw-semibold fs-6">@player.FirstName @player.LastName</div>
+
+                <div class="text-muted small">
+                    @(player.LastCollege ?? "N/A")
+                </div>
+
+                <div class="text-muted small">
+                    Height: @(player.HeightFormatted ?? "Unknown") |
+                    Weight: @(player.WeightFormatted ?? "Unknown") |
+                    Position: @(player.Position ?? "Unknown")
+                </div>
+            </button>
         }
-    </ul>
+    </div>
+    </div>
+
+ 
 }
 
 @code {
@@ -72,15 +149,27 @@ else
 
     private Team? team;
     private TeamSummary record = new();
-    private List<TeamRecordSummary> topSeasons = new();
+    private List<TeamSummary> seasonRecords = new();
+    private List<Player> players = new();
 
     private string? pageError;
 
     protected override async Task OnInitializedAsync()
     {
-        team = await TeamDataAccess.GetTeamInfoAsync(teamId);
-        record = await TeamDataAccess.GetTeamRecord(teamId);
-        topSeasons = await TeamDataAccess.GetTopSeasonsAsync(teamId);
-        topPlayers = await TeamDataAccess.GetTopPlayersAsync(teamId);
+        try
+        {
+            team = await TeamDataAccess.GetTeamInfoAsync(teamId);
+            record = await TeamDataAccess.GetTeamRecord(teamId);
+            seasonRecords = await TeamDataAccess.GetTeamRecordEachSeason(teamId);
+            players = await TeamDataAccess.GetPlayersOnTeam(teamId, (short)DateTime.Now.Year);
+        }
+        catch(Exception)
+        {
+            pageError = "An error occured during database loading";
+        }
+    }
+    private void GoToPlayerPage(int playerId)
+    {
+        navigationManager.NavigateTo($"/player/{playerId}");
     }
 }

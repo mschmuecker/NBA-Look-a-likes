@@ -27,36 +27,28 @@
         /// <returns></returns>
         public async Task<List<Player?>> GetAll()
         {
-            try
+            
+            using SqlConnection conn = new(_connectionString);
+            await conn.OpenAsync();
+
+            string sql = File.ReadAllText("SQL/AllPlayers.sql");
+            using SqlCommand cmd = new(sql, conn);
+            List<Player> players = new();
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
-                using SqlConnection conn = new(_connectionString);
-                await conn.OpenAsync();
+                players.Add(GetPlayerData(reader));
 
-                string sql = File.ReadAllText("SQL/AllPlayers.sql");
-                using SqlCommand cmd = new(sql, conn);
-                List<Player> players = new();
-
-                using var reader = await cmd.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
-                {
-                    players.Add(GetPlayerData(reader));
-
-                }
-                return players;
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Exception Type: " + ex.GetType().FullName);
-                Console.WriteLine("Message: " + ex.Message);
-                Console.WriteLine("StackTrace: " + ex.StackTrace);
-                if (ex.InnerException != null)
-                {
-                    Console.WriteLine("Inner Exception: " + ex.InnerException.Message);
-                }
-            }
-
-            return null;
+            return players;
+            
         }
+        /// <summary>
+        /// Updates an existing player in database
+        /// </summary>
+        /// <param name="player"></param>
+        /// <returns></returns>
         public async Task UpdatePlayerAsync(Player player)
         {
             using var conn = new SqlConnection(_connectionString);
@@ -118,31 +110,6 @@
             return null;
         }
 
-        public async Task<College?> GetCollegeByIdAsync(int collegeId)
-        {
-            using SqlConnection conn = new(_connectionString);
-            await conn.OpenAsync();
-
-            string sql = "SELECT * FROM College WHERE CollegeID = @collegeId";
-            using SqlCommand cmd = new(sql, conn);
-            cmd.Parameters.AddWithValue("@collegeId", collegeId);
-
-            using var reader = await cmd.ExecuteReaderAsync();
-            if (await reader.ReadAsync())
-            {
-                return new College
-                {
-                    CollegeID = reader.GetInt32(0),
-                    CollegeName = reader.GetString(1),
-                    CollegeCity = reader.GetString(2),
-                    CollegeState = reader.GetString(3),
-                    CollegeCountry = reader.GetString(4),
-                    Mascot = reader.GetString(5)
-                };
-            }
-
-            return null;
-        }
         /// <summary>
         /// This will return the career stat summary for key statistics given playerID
         /// </summary>
@@ -250,128 +217,53 @@
             }
             return players;
         }
+        /// <summary>
+        /// This will use more stats to get similar players.
+        /// </summary>
+        /// <param name="playerId"></param>
+        /// <param name="statEnabled"></param>
+        /// <param name="statWeights"></param>
+        /// <returns></returns>
         public async Task<List<Player>> GetSimilarPlayersByStatsAsync(int playerId, Dictionary<StatCategory, bool> statEnabled
             , Dictionary<StatCategory, double> statWeights)
         {
             List<Player> players = new();
-            try
-            {
-                using SqlConnection conn = new(_connectionString);
-                await conn.OpenAsync();
-
-                using SqlCommand cmd = new("dbo.GetSimilarPlayersByWeightedStats", conn);
-                cmd.CommandType = System.Data.CommandType.StoredProcedure;
-
-                cmd.Parameters.AddWithValue("@PlayerId", playerId);
-                foreach(var category in Enum.GetValues<StatCategory>())
-                {
-                    string name = category.ToString();
-
-                    bool use = statEnabled.TryGetValue(category, out var enabled) ? enabled : false;
-                    double weight = statWeights.TryGetValue(category, out var w) ? w : 1.0;
-
-                    cmd.Parameters.AddWithValue($"@use{name}", use ? 1 : 0);
-                    cmd.Parameters.AddWithValue($"@weight{name}", weight);
-                }
-                //params for query
-               
-                using var reader = await cmd.ExecuteReaderAsync();
-                while (reader.Read())
-                {
-                    var PlayerID = SQLRead.GetSafeInt(reader, "personId");
-                    Player player = await GetPlayerByIdAsync(PlayerID);
-                    player.CareerStatSummary = new StatSummary();
-                    player.CareerStatSummary.PPG = SQLRead.GetSafeDouble(reader, "PPG");
-                    player.CareerStatSummary.RPG = SQLRead.GetSafeDouble(reader, "RPG");
-                    player.CareerStatSummary.APG = SQLRead.GetSafeDouble(reader, "APG");
-                    players.Add(player);
-
-                }
-
-               
-            }
-            catch (Exception ex)
-            {
-
-            }
-            return players;
-        }
-
-        public async Task<List<Player>> FindPlayersByStatsAsync(StatFilter filter)
-        {
-            var players = new List<Player>();
-            var sb = new StringBuilder(@"
-        SELECT 
-            P.playerID, P.firstName, P.lastName,
-            AVG(CAST(GS.fieldGoalsMade + GS.threePointersMade + GS.freeThrowsMade AS FLOAT)) AS PPG,
-            AVG(CAST(GS.reboundsTotal AS FLOAT)) AS RPG,
-            AVG(CAST(GS.assists AS FLOAT)) AS APG,
-            AVG(CAST(GS.fieldGoalsPercentage AS FLOAT)) AS FGPercentage,
-            AVG(CAST(GS.threePointersPercentage AS FLOAT)) AS ThreePPercentage,
-            AVG(CAST(GS.turnovers AS FLOAT)) AS Turnovers
-        FROM Player P
-        JOIN GameStats GS ON P.playerID = GS.playerID
-        GROUP BY P.playerID, P.firstName, P.lastName
-        HAVING 1=1");
-
-            var parameters = new List<SqlParameter>();
-
-            if (filter.MinPPG.HasValue)
-            {
-                sb.Append(" AND AVG(CAST(GS.fieldGoalsMade + GS.threePointersMade + GS.freeThrowsMade AS FLOAT)) >= @MinPPG");
-                parameters.Add(new SqlParameter("@MinPPG", filter.MinPPG));
-            }
-            if (filter.MaxTurnovers.HasValue)
-            {
-                sb.Append(" AND AVG(CAST(GS.turnovers AS FLOAT)) <= @MaxTurnovers");
-                parameters.Add(new SqlParameter("@MaxTurnovers", filter.MaxTurnovers));
-            }
-            if (filter.MinThreeP.HasValue)
-            {
-                sb.Append(" AND AVG(CAST(GS.threePointersPercentage AS FLOAT)) >= @MinThreeP");
-                parameters.Add(new SqlParameter("@MinThreeP", filter.MinThreeP));
-            }
-            if (filter.MinAPG.HasValue)
-            {
-                sb.Append(" AND AVG(CAST(GS.assists AS FLOAT)) >= @MinAPG");
-                parameters.Add(new SqlParameter("@MinAPG", filter.MinAPG));
-            }
-            if (filter.MinRPG.HasValue)
-            {
-                sb.Append(" AND AVG(CAST(GS.reboundsTotal AS FLOAT)) >= @MinRPG");
-                parameters.Add(new SqlParameter("@MinRPG", filter.MinRPG));
-            }
-            if (filter.MinFGP.HasValue)
-            {
-                sb.Append(" AND AVG(CAST(GS.fieldGoalsPercentage AS FLOAT)) >= @MinFGP");
-                parameters.Add(new SqlParameter("@MinFGP", filter.MinFGP));
-            }
-
-            string sql = sb.ToString();
-
+           
             using SqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
 
-            using SqlCommand cmd = new(sql, conn);
-            cmd.Parameters.AddRange(parameters.ToArray());
+            using SqlCommand cmd = new("dbo.GetSimilarPlayersByWeightedStats", conn);
+            cmd.CommandType = System.Data.CommandType.StoredProcedure;
 
-            using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            cmd.Parameters.AddWithValue("@PlayerId", playerId);
+            foreach(var category in Enum.GetValues<StatCategory>())
             {
-                Player player = GetPlayerData(reader);
-                player.CareerStatSummary = new StatSummary
-                {
-                    PPG = reader.IsDBNull(3) ? 0 : reader.GetDouble(3),
-                    RPG = reader.IsDBNull(4) ? 0 : reader.GetDouble(4),
-                    APG = reader.IsDBNull(5) ? 0 : reader.GetDouble(5),
-                    FGPercentage = reader.IsDBNull(6) ? 0 : reader.GetDouble(6),
-                    ThreePPercentage = reader.IsDBNull(7) ? 0 : reader.GetDouble(7),
-                };
+                string name = category.ToString();
+
+                bool use = statEnabled.TryGetValue(category, out var enabled) ? enabled : false;
+                double weight = statWeights.TryGetValue(category, out var w) ? w : 1.0;
+
+                cmd.Parameters.AddWithValue($"@use{name}", use ? 1 : 0);
+                cmd.Parameters.AddWithValue($"@weight{name}", weight);
+            }
+            //params for query
+               
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (reader.Read())
+            {
+                var PlayerID = SQLRead.GetSafeInt(reader, "personId");
+                Player player = await GetPlayerByIdAsync(PlayerID);
+                player.CareerStatSummary = new StatSummary();
+                player.CareerStatSummary.PPG = SQLRead.GetSafeDouble(reader, "PPG");
+                player.CareerStatSummary.RPG = SQLRead.GetSafeDouble(reader, "RPG");
+                player.CareerStatSummary.APG = SQLRead.GetSafeDouble(reader, "APG");
                 players.Add(player);
+
             }
 
             return players;
         }
+
         /// <summary>
         /// This will get the 5 best games for a player based on the chosen stat
         /// </summary>
@@ -421,6 +313,11 @@
             { }
             return null;
         }
+        /// <summary>
+        /// Gets the teams that a player has played for.
+        /// </summary>
+        /// <param name="player"></param>
+        /// <returns></returns>
         public async Task<List<PlayedFor>> GetTeamsPlayedForAsync(Player player)
         {
             using SqlConnection conn = new(_connectionString);
@@ -475,9 +372,6 @@
             };
 
         }
-        public async Task<List<Player>> GetPlayersByTeamAsync(int teamId)
-        {
-            return new List<Player>();
-        }
+     
     }
 }

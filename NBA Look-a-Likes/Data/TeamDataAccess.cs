@@ -68,6 +68,11 @@ namespace NBA_App.Data
             return team;
 
         }
+        /// <summary>
+        /// Gets teams as of a specific season
+        /// </summary>
+        /// <param name="season"></param>
+        /// <returns></returns>
         public async Task<List<Team>> GetTeamsOnDateAsync(short season)
         {
             List<Team> teams = new List<Team>();
@@ -99,6 +104,12 @@ namespace NBA_App.Data
             catch (Exception ex) { }
             return teams;
         }
+        /// <summary>
+        /// Grabs the players on the team based on the season
+        /// </summary>
+        /// <param name="teamId"></param>
+        /// <param name="season"></param>
+        /// <returns></returns>
         public async Task<List<Player>> GetPlayersOnTeam(int teamId,  short season)
         {
             List<Player> players = new List<Player>();
@@ -122,7 +133,12 @@ namespace NBA_App.Data
             return players;
                     
         }
-        public async Task<TeamRecordSummary> GetTeamRecord(int teamId)
+        /// <summary>
+        /// Gets team all time record
+        /// </summary>
+        /// <param name="teamId"></param>
+        /// <returns></returns>
+        public async Task<TeamSummary> GetTeamRecord(int teamId)
         {
 
             using SqlConnection conn = new(_connectionString);
@@ -135,7 +151,7 @@ namespace NBA_App.Data
             using var reader = await cmd.ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {
-                return new TeamRecordSummary
+                return new TeamSummary
                 {
                     Wins = SQLRead.GetSafeInt(reader, "wins"),
                     Losses = SQLRead.GetSafeInt(reader, "losses"),
@@ -143,32 +159,47 @@ namespace NBA_App.Data
                 };
             }
 
-            return new TeamRecordSummary();
+            return new TeamSummary();
         }
         /// <summary>
-        /// Gets the list of all the active teams
+        /// Loads all season for given team for high level information
+        /// 
         /// </summary>
-        /// <param name="ActiveOnly">If a team is no longer active don't return</param>
-        /// <param name="League">limit to only this type of league</param>
+        /// <param name="teamId"></param>
         /// <returns></returns>
-        private async Task<List<Team>> GetTeamInfoAsync(bool ActiveOnly,string League)
+        public async Task<List<TeamSummary>> GetTeamRecordEachSeason(int teamId)
         {
+            List<TeamSummary> result = new();
             using SqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
 
-            //TO DO
-            string sql = File.ReadAllText("SQL/GetTeam.sql");
-            using SqlCommand cmd = new(sql, conn);
-            //
+            using SqlCommand cmd = new("dbo.GetTeamRecordBySeason", conn);
+            cmd.CommandType = System.Data.CommandType.StoredProcedure;
+            cmd.Parameters.AddWithValue("@TeamId", teamId);
+
             using var reader = await cmd.ExecuteReaderAsync();
-            List<Team> result = new List<Team>();
             while (await reader.ReadAsync())
             {
-                //
+                result.Add( new TeamSummary
+                {
+                    Wins = SQLRead.GetSafeInt(reader, "wins"),
+                    Losses = SQLRead.GetSafeInt(reader, "losses"),
+                    GamesPlayed = SQLRead.GetSafeInt(reader, "gamesplayed"),
+                    PPG = SQLRead.GetSafeDouble(reader,"PointsPerGame"),
+                    PointsAllowed = SQLRead.GetSafeDouble(reader,"PointsAgainstPerGame"),
+                    Season = SQLRead.GetSafeInt(reader,"Season")
+             
+                });
             }
+
             return result;
 
         }
+        /// <summary>
+        /// Saves off the history record for a Team from the database
+        /// </summary>
+        /// <param name="reader"></param>
+        /// <returns></returns>
         private TeamHistory GetTeamHistoryData(SqlDataReader reader)
         {
             return new TeamHistory

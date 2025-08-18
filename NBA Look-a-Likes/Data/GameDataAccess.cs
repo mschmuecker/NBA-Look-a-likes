@@ -21,89 +21,84 @@ namespace NBA_App.Data
             _connectionString = config.GetConnectionString("Default");
             _configuration = config;
         }
+        /// <summary>
+        /// This will get the stat leaders from a game
+        /// </summary>
+        /// <param name="stat"></param>
+        /// <returns></returns>
         public async Task<List<StatLeader>> GetStatLeadersAsync(StatCategory stat)
         {
-            try
+           
+            using SqlConnection conn = new(_connectionString);
+            await conn.OpenAsync();
+
+            using SqlCommand cmd = new("dbo.GetStatLeaders", conn);
+            cmd.CommandType = System.Data.CommandType.StoredProcedure;
+            cmd.Parameters.AddWithValue("@Stat", StatCategoryExtensions.ToSqlValue(stat));
+
+            List<StatLeader> leaders = new();
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
-                using SqlConnection conn = new(_connectionString);
-                await conn.OpenAsync();
-
-                using SqlCommand cmd = new("dbo.GetStatLeaders", conn);
-                cmd.CommandType = System.Data.CommandType.StoredProcedure;
-                cmd.Parameters.AddWithValue("@Stat", StatCategoryExtensions.ToSqlValue(stat));
-
-                List<StatLeader> leaders = new();
-
-                using var reader = await cmd.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
+                StatLeader statLeader = new StatLeader
                 {
-                    StatLeader statLeader = new StatLeader
-                    {
-                        Player = PlayerDataAccess.GetPlayerData(reader),
-                        Stat = SQLRead.GetSafeDouble(reader, "statvalue")
+                    Player = PlayerDataAccess.GetPlayerData(reader),
+                    Stat = SQLRead.GetSafeDouble(reader, "statvalue")
 
-                    };
-                    leaders.Add(statLeader);
-                }
-                return leaders;
+                };
+                leaders.Add(statLeader);
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Exception Type: " + ex.GetType().FullName);
-                Console.WriteLine("Message: " + ex.Message);
-                Console.WriteLine("StackTrace: " + ex.StackTrace);
-                if (ex.InnerException != null)
-                {
-                    Console.WriteLine("Inner Exception: " + ex.InnerException.Message);
-                }
-            }
-            return null;
+            return leaders;
         }
+        /// <summary>
+        /// Gets the games on the given calendar date
+        /// </summary>
+        /// <param name="date"></param>
+        /// <returns></returns>
         public async Task<List<GameSummary>> GetGamesOnDate(DateTime date)
         {
             List<GameSummary> games = new();
 
-            try
-            {
-                using SqlConnection conn = new(_connectionString);
-                await conn.OpenAsync();
+            using SqlConnection conn = new(_connectionString);
+            await conn.OpenAsync();
 
-                using SqlCommand cmd = new("dbo.GetGameByDate", conn);
-                cmd.CommandType = System.Data.CommandType.StoredProcedure;
-                cmd.Parameters.AddWithValue("@GameDate", date);
+            using SqlCommand cmd = new("dbo.GetGameByDate", conn);
+            cmd.CommandType = System.Data.CommandType.StoredProcedure;
+            cmd.Parameters.AddWithValue("@GameDate", date);
                 
-                using var reader = await cmd.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
-                {
-                    GameSummary game = new GameSummary
-                    {
-                        GameId = SQLRead.GetSafeInt(reader, "gameid"),
-                        GameDate = SQLRead.GetSafeDate(reader, "gamedate"),
-                        HomeTeamId = SQLRead.GetSafeInt(reader, "hometeamid"),
-                        HomeTeamName = SQLRead.GetSafeString(reader, "hometeamname"),
-                        HomeTeamCity = SQLRead.GetSafeString(reader, "hometeamcity"),
-                        AwayTeamCity = SQLRead.GetSafeString(reader, "awayteamcity"),
-                        AwayTeamId = SQLRead.GetSafeInt(reader, "awayteamid"),
-                        AwayTeamName = SQLRead.GetSafeString(reader, "awayteamname"),
-                        HomeScore = SQLRead.GetSafeTinyInt(reader, "homescore"),
-                        AwayScore = SQLRead.GetSafeTinyInt(reader, "awayscore"),
-                        Winner = SQLRead.GetSafeInt(reader, "winner"),
-                        Attendance = SQLRead.GetSafeDouble(reader, "attendance"),
-                        ArenaId = SQLRead.GetSafeInt(reader, "arenaId"),
-                        GameType = SQLRead.GetSafeString(reader, "gametype")
-
-
-                    };
-                    games.Add(game);
-                }
-            }
-            catch(Exception ex )
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
-                Console.WriteLine(ex.Message);
-                Console.WriteLine(ex.InnerException);
+                GameSummary game = new GameSummary
+                {
+                    GameId = SQLRead.GetSafeInt(reader, "gameid"),
+                    GameDate = SQLRead.GetSafeDate(reader, "gamedate"),
+                    HomeTeamId = SQLRead.GetSafeInt(reader, "hometeamid"),
+                    HomeTeamName = SQLRead.GetSafeString(reader, "hometeamname"),
+                    HomeTeamCity = SQLRead.GetSafeString(reader, "hometeamcity"),
+                    AwayTeamCity = SQLRead.GetSafeString(reader, "awayteamcity"),
+                    AwayTeamId = SQLRead.GetSafeInt(reader, "awayteamid"),
+                    AwayTeamName = SQLRead.GetSafeString(reader, "awayteamname"),
+                    HomeScore = SQLRead.GetSafeTinyInt(reader, "homescore"),
+                    AwayScore = SQLRead.GetSafeTinyInt(reader, "awayscore"),
+                    Winner = SQLRead.GetSafeInt(reader, "winner"),
+                    Attendance = SQLRead.GetSafeDouble(reader, "attendance"),
+                    ArenaId = SQLRead.GetSafeInt(reader, "arenaId"),
+                    GameType = SQLRead.GetSafeString(reader, "gametype")
+
+
+                };
+                games.Add(game);
             }
+            
             return games;
         }
+        /// <summary>
+        /// Inserts a new game into the database
+        /// </summary>
+        /// <param name="model"></param>
+        /// <returns></returns>
    
         public async Task<int?> InsertGameAsync(GameEditModel model)
         {
@@ -112,6 +107,11 @@ namespace NBA_App.Data
             return model.GameId;
 
         }
+        /// <summary>
+        /// inserts team game level data
+        /// </summary>
+        /// <param name="model"></param>
+        /// <returns></returns>
         private async Task<int> InsertGameDataAsync(GameEditModel model)
         {
             
@@ -142,6 +142,11 @@ namespace NBA_App.Data
             return (int)await cmd.ExecuteScalarAsync();
            
         }
+        /// <summary>
+        /// inserts player game data into database
+        /// </summary>
+        /// <param name="model"></param>
+        /// <returns></returns>
         private async Task InsertGamePlayerDataAsync(GameEditModel model)
         {
             
@@ -163,13 +168,22 @@ namespace NBA_App.Data
                 await cmd.ExecuteNonQueryAsync();
             }
         }
-        
+        /// <summary>
+        /// updates game data
+        /// </summary>
+        /// <param name="model"></param>
+        /// <returns></returns>
         public async Task UpdateGameAsync(GameEditModel model)
         {
             await UpdateGameStatsAsync(model);
             await UpdatePlayerGameStatsAsync(model);
 
         }
+        /// <summary>
+        /// updates game stats for teams
+        /// </summary>
+        /// <param name="model"></param>
+        /// <returns></returns>
         private async Task UpdateGameStatsAsync(GameEditModel model)
         {
             using SqlConnection conn = new(_connectionString);
@@ -189,6 +203,11 @@ namespace NBA_App.Data
             await cmd.ExecuteNonQueryAsync();
 
         }
+        /// <summary>
+        /// updates game stats for players
+        /// </summary>
+        /// <param name="model"></param>
+        /// <returns></returns>
         private async Task UpdatePlayerGameStatsAsync(GameEditModel model)
         {
             using SqlConnection conn = new(_connectionString);
@@ -209,6 +228,11 @@ namespace NBA_App.Data
             }
 
         }
+        /// <summary>
+        /// Loads game information from database
+        /// </summary>
+        /// <param name="gameId"></param>
+        /// <returns></returns>
         public async Task<GameEditModel> LoadGameForEditAsync(int gameId)
         {
             using SqlConnection conn = new(_connectionString);
@@ -240,49 +264,47 @@ namespace NBA_App.Data
 
             return new();
         }
+        /// <summary>
+        /// Loads player level game information from database
+        /// </summary>
+        /// <param name="gameId"></param>
+        /// <returns></returns>
         public async Task<List<PlayerGameRow>> LoadPlayerGameInfoAsync(int gameId)
         {
             List<PlayerGameRow> rows = new List<PlayerGameRow>();
-            try
+         
+            using SqlConnection conn = new(_connectionString);
+            await conn.OpenAsync();
+
+            using SqlCommand cmd = new("dbo.GetGameStatsByGameId", conn);
+            cmd.CommandType = System.Data.CommandType.StoredProcedure;
+            cmd.Parameters.AddWithValue("@GameId", gameId);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (reader.Read())
             {
-                using SqlConnection conn = new(_connectionString);
-                await conn.OpenAsync();
-
-                using SqlCommand cmd = new("dbo.GetGameStatsByGameId", conn);
-                cmd.CommandType = System.Data.CommandType.StoredProcedure;
-                cmd.Parameters.AddWithValue("@GameId", gameId);
-
-                using var reader = await cmd.ExecuteReaderAsync();
-                while (reader.Read())
+                PlayerDataAccess db = new(_configuration);
+                PlayerGameRow row = new PlayerGameRow
                 {
-                    PlayerDataAccess db = new(_configuration);
-                    PlayerGameRow row = new PlayerGameRow
-                    {
-                        Win = SQLRead.GetSafeBoolean(reader, "win"),
-                        Home = SQLRead.GetSafeBoolean(reader, "home"),
-                        Minutes = SQLRead.GetSafeDouble(reader, "numMinutes"),
-                        Points = SQLRead.GetSafeDouble(reader, "points"),
-                        Assists = SQLRead.GetSafeDouble(reader, "assists"),
-                        Blocks = SQLRead.GetSafeDouble(reader, "blocks"),
-                        Steals = SQLRead.GetSafeDouble(reader, "steals"),
-                        FGA = SQLRead.GetSafeDouble(reader, "fieldGoalsAttempted"),
-                        FGM = SQLRead.GetSafeDouble(reader, "fieldGoalsMade"),
-                        TPA = SQLRead.GetSafeDouble(reader, "threepointersattempted"),
-                        TPM = SQLRead.GetSafeDouble(reader, "threepointersmade"),
-                        FTA = SQLRead.GetSafeDouble(reader, "freethrowsattempted"),
-                        FTM = SQLRead.GetSafeDouble(reader, "freethrowsmade"),
-                        ReboundsTotal = SQLRead.GetSafeDouble(reader, "reboundstotal"),
-                        Turnovers = SQLRead.GetSafeDouble(reader, "turnovers"),
-                        Player = await db.GetPlayerByIdAsync(SQLRead.GetSafeInt(reader,"personid"))
+                    Win = SQLRead.GetSafeBoolean(reader, "win"),
+                    Home = SQLRead.GetSafeBoolean(reader, "home"),
+                    Minutes = SQLRead.GetSafeDouble(reader, "numMinutes"),
+                    Points = SQLRead.GetSafeDouble(reader, "points"),
+                    Assists = SQLRead.GetSafeDouble(reader, "assists"),
+                    Blocks = SQLRead.GetSafeDouble(reader, "blocks"),
+                    Steals = SQLRead.GetSafeDouble(reader, "steals"),
+                    FGA = SQLRead.GetSafeDouble(reader, "fieldGoalsAttempted"),
+                    FGM = SQLRead.GetSafeDouble(reader, "fieldGoalsMade"),
+                    TPA = SQLRead.GetSafeDouble(reader, "threepointersattempted"),
+                    TPM = SQLRead.GetSafeDouble(reader, "threepointersmade"),
+                    FTA = SQLRead.GetSafeDouble(reader, "freethrowsattempted"),
+                    FTM = SQLRead.GetSafeDouble(reader, "freethrowsmade"),
+                    ReboundsTotal = SQLRead.GetSafeDouble(reader, "reboundstotal"),
+                    Turnovers = SQLRead.GetSafeDouble(reader, "turnovers"),
+                    Player = await db.GetPlayerByIdAsync(SQLRead.GetSafeInt(reader,"personid"))
                         
-                    };
-                    rows.Add(row);
-
-                }
-            }
-            catch(Exception ex)
-            {
-                Console.WriteLine(ex.Message);
+                };
+                rows.Add(row);  
             }
             return rows;
         }

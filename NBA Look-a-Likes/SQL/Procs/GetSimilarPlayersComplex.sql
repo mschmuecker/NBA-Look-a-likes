@@ -54,7 +54,8 @@ BEGIN
             ON P.personId = GS.personId
         WHERE P.personId != @PlayerId
         GROUP BY P.personId, P.firstName, P.lastName
-    )
+    ),
+    Scored AS (
     SELECT 
         ca.personId,
         ca.firstName,
@@ -79,6 +80,10 @@ BEGIN
         ) AS StatDistance
     FROM CareerAverages ca
     CROSS JOIN TargetStats ts
+    )
+    SELECT *
+    FROM Scored
+    WHERE StatDistance IS NOT NULL              -- <-- filter out NULLs
     ORDER BY StatDistance ASC
     OFFSET 0 ROWS FETCH NEXT @Top ROWS ONLY;
 END
