@@ -1,0 +1,57 @@
+﻿@using NBA_App.Model
+@using NBA_App.Data
+@inject PlayerDataAccess playerDb
+
+@if(isLoading) {
+    <p>Loading page</p>
+}
+else {
+<div class="card mb-4">
+    <div class="card-header fw-semibold">Career Stats</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>PPG</th>
+                        <th>RPG</th>
+                        <th>APG</th>
+                        <th>FG%</th>
+                        <th>3P%</th>
+                        <th>FT%</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>@player.CareerStatSummary.PPG.ToString("0.0")</td>
+                        <td>@player.CareerStatSummary.RPG.ToString("0.0")</td>
+                        <td>@player.CareerStatSummary.APG.ToString("0.0")</td>
+                        <td>@player.CareerStatSummary.FGPercentage.ToString("P1")</td>
+                        <td>@player.CareerStatSummary.ThreePPercentage.ToString("P1")</td>
+                        <td>@player.CareerStatSummary.FTPercentage.ToString("P1")</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+}
+@code {
+    [Parameter] public Player player { get; set; } = new();
+    private bool isLoading { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+
+        // if (player?.CollegeID != null)
+        // {
+        //     college = await PlayerDataAccess.GetCollegeByIdAsync(player.CollegeID.Value);
+        // }
+
+        player.CareerStatSummary = await playerDb.GetCareerStatsAsync(player.PlayerID);
+
+        isLoading = false;
+    }
+
+}

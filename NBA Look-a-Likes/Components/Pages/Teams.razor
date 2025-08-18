@@ -1,0 +1,155 @@
+﻿@page "/teams/"
+@using NBA_App.Model
+@using NBA_App.Data
+@inject TeamDataAccess teamDb
+@inject NavigationManager NavigationManager
+
+<h3>Teams</h3>
+@if (!string.IsNullOrWhiteSpace(pageError))
+{
+    <div class="alert alert-danger d-flex align-items-center" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <div>@pageError</div>
+    </div>
+}
+@if (isLoading)
+{
+    <div class="text-center my-3">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="container mt-4"> <!-- This limits the page width and centers it -->
+
+        <div class="position-relative">
+            <form @onsubmit="HandleSearch">
+                <input @bind="searchQuery" class="form-control mb-3" placeholder="Search teams..." />
+            </form>
+
+            @if (searchResults.Any())
+            {
+                <div class="search-overlay-list position-absolute bg-white shadow rounded w-100 z-3">
+                    @foreach (var team in searchResults)
+                    {
+                        <button type="button"
+                                class="list-group-item list-group-item-action text-start search-result-item"
+                                @onclick="() => GoToTeamPage(team.TeamID)">
+                            <div class="fw-semibold fs-6">@team.TeamCity @team.TeamName</div>
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+    <div class="container-fluid mt-4">
+
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-header">NBA Teams</div>
+                    <div class="card-body">
+                        @foreach(var team in allTeams.Where(r => r.League=="NBA").OrderBy(r =>r.TeamCity))
+                        {
+                            <button type="button"
+                                    class="list-group-item list-group-item-action text-start search-result-item"
+                                    @onclick="() => GoToTeamPage(team.TeamID)">
+                                <div class="fw-semibold fs-6">@team.TeamCity @team.TeamName</div>
+                                
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-header">NBL Teams</div>
+                    <div class="card-body">
+                        @foreach (var team in allTeams.Where(r => r.League == "NBL").OrderBy(r => r.TeamCity))
+                        {
+                            <button type="button"
+                                    class="list-group-item list-group-item-action text-start search-result-item"
+                                    @onclick="() => GoToTeamPage(team.TeamID)">
+                                <div class="fw-semibold fs-6">@team.TeamCity @team.TeamName</div>
+
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-header">EuroLeague Teams</div>
+                    <div class="card-body">
+                        @foreach (var team in allTeams.Where(r => r.League == "EuroLeague").OrderBy(r => r.TeamCity))
+                        {
+                            <button type="button"
+                                    class="list-group-item list-group-item-action text-start search-result-item"
+                                    @onclick="() => GoToTeamPage(team.TeamID)">
+                                <div class="fw-semibold fs-6">@team.TeamCity @team.TeamName</div>
+
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    }
+    @code {
+    private string? pageError { get; set; }
+    private bool isLoading { get; set; } = false;
+    private List<Team?> allTeams { get; set; } = new();
+    private List<Team?> searchResults = new();
+    private string? searchQuery;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+          
+            isLoading = true;
+            allTeams = await teamDb.GetAllTeamsAsync();
+
+            isLoading = false;
+        }
+        catch (Exception)
+        {
+            pageError = "Issue loading information from database";
+        }
+    }
+    private void HandleSearch(EventArgs args)
+    {
+        RunSearch();
+    }
+    private void RunSearch()
+    {
+        if (isLoading || allTeams == null || allTeams.Count == 0)
+        {
+            searchResults = new();
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            searchResults = new();
+            return;
+        }
+
+
+        string query = searchQuery.Trim().ToLower();
+
+        searchResults = allTeams
+            .Where(t =>
+                (!string.IsNullOrEmpty(t.TeamCity) && t.TeamCity.ToLower().Contains(query)) ||
+                (!string.IsNullOrEmpty(t.TeamName) && t.TeamName.ToLower().Contains(query)))
+            .ToList();
+    }
+    private void GoToTeamPage(int teamId)
+    {
+        NavigationManager.NavigateTo($"/team/{teamId}");
+    }
+}

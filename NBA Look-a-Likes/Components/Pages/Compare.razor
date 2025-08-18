@@ -1,0 +1,169 @@
+﻿@page "/compare"
+@page "/compare/{playerId:int?}"
+@using NBA_App.Components.Widgets
+@using NBA_App.Data
+@using NBA_App.Model
+@using NBA_App.Enums
+@using NBA_App.Extensions
+@rendermode InteractiveServer
+@inject PlayerDataAccess PlayerService
+@inject GameDataAccess GameService
+<h3>Compare</h3>
+@if(!isLoading) {
+@if(playerId == null)
+{
+    <div class="mb-3">
+        <label>Select Player:</label>
+            <BlazoredTypeahead @bind-Value="selectedPlayer"
+                               SearchMethod="SearchPlayers"
+                               Placeholder="Select a player..."
+                               MinimumLength="2"
+                               TItem="Player"
+                               TValue="Player">
+                <ResultTemplate Context="p">
+                    <div>
+                        <strong>@p.FullName</strong>
+                        <small class="text-muted"> — @p.Position</small>
+                    </div>
+                </ResultTemplate>
+                <SelectedTemplate Context="p">
+                    @p.FullName
+                </SelectedTemplate>
+            </BlazoredTypeahead>
+    </div>
+}
+<div class="mb-3">
+    <label>Stat Filters & Weights</label>
+    @foreach (var stat in Enum.GetValues<StatCategory>())
+    {
+        <div class="mb-2">
+            <div class="form-check d-flex align-items-center">
+                <input class="form-check-input me-2" type="checkbox"
+                       @bind="statEnabled[stat]" />
+                <label class="form-check-label me-3">@stat.ToDisplayName()</label>
+
+                <input type="range" class="form-range w-25"
+                       min="0" max="10" step="0.1"
+                       @bind="statWeights[stat]" />
+                <span class="ms-2">@statWeights[stat].ToString("0.0")</span>
+            </div>
+        </div>
+    }
+</div>
+}
+
+<button class="btn btn-primary" @onclick="LoadSimilarPlayersAsync" disabled="@(!CanSearch)">
+    Find Similar Players
+</button>
+
+@if (similarPlayers.Any())
+{
+    <h5 class="mt-4">Similar Players</h5>
+
+    <div class="list-group">
+        @foreach (var player in similarPlayers)
+        {
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>@player.FullName</strong> — @player.Position
+                </div>
+                <button class="btn btn-outline-primary btn-sm"
+                        @onclick="() => OpenCompareModal(player)">
+                    Compare
+                </button>
+            </div>
+        }
+    </div>
+}
+@if (showCompareModal && comparisonPlayer is not null && selectedPlayer is not null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1050;">
+        <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Compare Players</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <PlayerCompareDisplay Players="new List<Player> { selectedPlayer, comparisonPlayer }" />
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+
+@code {
+    [Parameter] public int? playerId { get; set; }
+
+    private int? selectedPlayerId = null;
+    private Player? selectedPlayer;
+    private List<Player> allPlayers = new();
+    private List<Player> similarPlayers = new();
+    private Player? comparisonPlayer = new();
+    private bool showCompareModal = false;
+
+    private Dictionary<StatCategory, bool> statEnabled = new();
+    private Dictionary<StatCategory, double> statWeights = new();
+    private bool isLoading;
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        allPlayers = await PlayerService.GetAll();
+
+        foreach (StatCategory stat in Enum.GetValues<StatCategory>())
+        {
+            statEnabled[stat] = true;
+            statWeights[stat] = 1.0;
+        }
+
+        if (playerId.HasValue)
+        {
+            selectedPlayer = await PlayerService.GetPlayerByIdAsync(playerId.Value);
+            await LoadSimilarPlayersAsync();
+        }
+        isLoading = false;
+    }
+    private bool CanSearch => selectedPlayer != null && statEnabled.Any(kv => kv.Value);
+
+    private async Task LoadSimilarPlayersAsync()
+    {
+        var weights = statWeights.Where(kv => statEnabled[kv.Key])
+                                 .ToDictionary(kv => kv.Key, kv => kv.Value);
+
+        similarPlayers = await PlayerService.GetSimilarPlayersByStatsAsync(selectedPlayer.PlayerID, statEnabled, weights);
+    }
+    private Task onPlayerChanged(ChangeEventArgs args)
+    {
+        throw new NotImplementedException();
+    }
+    private Task OnPlayerChanged(ChangeEventArgs args)
+    {
+        throw new NotImplementedException();
+    }
+  
+    private Task<IEnumerable<Player>> SearchPlayers(string searchText)
+    {
+        return Task.FromResult(
+            allPlayers
+                .Where(p => p.FullName.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+                .Take(10)
+        );
+    }
+    private void OpenCompareModal(Player player)
+    {
+        comparisonPlayer = player;
+        showCompareModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showCompareModal = false;
+        comparisonPlayer = null;
+    }
+
+}

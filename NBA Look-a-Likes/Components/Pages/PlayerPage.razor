@@ -1,0 +1,214 @@
+﻿@page "/player/{playerId:int}"
+@using NBA_App.Components.Widgets
+@using NBA_App.DTO
+@using NBA_App.Data
+@using NBA_App.Enums
+@using NBA_App.Extensions
+@using NBA_App.Model
+@rendermode InteractiveServer
+@inject PlayerDataAccess PlayerDataAccess
+@inject NavigationManager NavigationManager
+
+
+<h3>Player Profile</h3>
+@if (!string.IsNullOrWhiteSpace(pageError))
+{
+    <div class="alert alert-danger d-flex align-items-center" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <div>@pageError</div>
+    </div>
+}
+@if (isLoading || player==null)
+{
+    <p>Loading player...</p>
+}
+else
+{
+    <div class="container-fluid mt-4">
+
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+
+                            <h4>@player.FirstName @player.LastName</h4>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => showEditModal = true">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </div>
+                        <p>
+                            Position: @player.Position<br />
+                            Height: @player.HeightFormatted | Weight: @player.WeightFormatted<br />
+                            College: @(player.LastCollege ?? "Unknown") <br/>
+                            Draft Year: @(player.DraftYear.ToString() ?? "Undrafted") <br/>
+                            Draft Round: @(player.DraftRound.ToString() ??"N/A") | Draft Number: @(player.DraftNumber.ToString() ?? "N/A")
+                            
+                        </p>
+                        @if (teamsPlayedFor.Any())
+                        {
+                            <hr />
+                            <h6 class="mt-3">Teams Played For</h6>
+                            <ul class="list-unstyled mb-0">
+                                @foreach (var team in teamsPlayedFor)
+                                {
+                                    <li class="mb-1">
+                                        <strong>@team.Team.TeamCity @team.Team.TeamName</strong><br />
+                                        <small class="text-muted">
+                                            @team.StartSeason–@(team.EndSeason >= 2100 ? "Present" : team.EndSeason.ToString())
+                                        </small>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                @if (bestGameStats.Any())
+                {
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Best Games</h5>
+                            <div class="d-flex flex-column gap-2">
+                                <select class="form-select form-select-sm w-auto"
+                                        @onchange="OnStatChanged">
+                                    @foreach (var stat in Enum.GetValues<StatCategory>())
+                                    {
+                                        <option value="@stat">@stat.ToDisplayName()</option>
+                                    }
+                                </select>
+                                @foreach (var g in bestGameStats)
+                                {
+                                    <div class="d-flex justify-content-between align-items-start border-bottom pb-2">
+                                        <div class="text-muted small">
+                                            <div>@g.GameDate.ToString("MMM d, yyyy")</div>
+                                            <div>
+                                                    @($"{g.Away.TeamAbbrev} @ {g.Home.TeamAbbrev}")<br />
+                                                    <span>@g.AwayPoints - @g.HomePoints</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="text-end">
+                                            <div class="fw-semibold fs-6">@selectedStat.ToDisplayName(): @g.StatValue</div>
+                                        </div>                                        
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+
+            </div>
+            <div class="col-md-4">
+                @if (similarPlayers.Any())
+                {
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Similar Players</h5>
+                            <div class="d-flex flex-column gap-2">
+                                @foreach (var p in similarPlayers)
+                                {
+                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-1">
+                                        <div>
+                                            <a href="@($"/player/{p.PlayerID}")" class="fw-semibold">
+                                                @p.FullName
+                                            </a><br />
+                                        </div>
+                                        <div class="text-muted small text-end">
+                                            <div>PPG: @p.CareerStatSummary.PPG.ToString("0.0")</div>
+                                            <div>RPG: @p.CareerStatSummary.RPG.ToString("0.0")</div>
+                                            <div>APG: @p.CareerStatSummary.APG.ToString("0.0")</div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+               
+            </div>
+        </div>
+    </div>
+    
+    @if (player.CareerStatSummary != null)
+    {
+        <PlayerCareerSummary player="player" />
+     
+    }
+   @if(player.SeasonStatSummary != null) 
+   {
+    
+        <PlayerSeasonSummary player ="player"/>
+
+   }
+    <EditPlayerModal Player="player"
+                 Visible="@showEditModal"
+                 VisibleChanged="@(v => showEditModal = v)"
+                 OnSaved="ReloadPlayer" />
+}
+
+@code {
+    [Parameter] public int playerId { get; set; }
+
+    private Player? player;
+    bool isLoading;
+    private College? college;
+    private StatSummary? careerStats;
+    private List<Player> similarPlayers = new();
+    private List<BestGameStats> bestGameStats = new();
+    private List<PlayedFor> teamsPlayedFor = new();
+    private StatCategory selectedStat = StatCategory.PPG;
+    private bool showEditModal = false;
+    private Player editPlayer = new();
+    private enum Col { Season, PPG, RPG, APG, FG, TP, FT }
+    private Col sortCol = Col.Season;
+    private bool sortAsc = false; // latest first
+    private string? pageError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            isLoading = true;
+            player = await PlayerDataAccess.GetPlayerByIdAsync(playerId);
+            player.CareerStatSummary = await PlayerDataAccess.GetCareerStatsAsync(playerId);
+            similarPlayers = await PlayerDataAccess.GetSimilarPlayersAsync(playerId);
+            bestGameStats = await PlayerDataAccess.GetBestGameStatsAsync(playerId, StatCategoryExtensions.ToSqlValue(selectedStat));
+            teamsPlayedFor = await PlayerDataAccess.GetTeamsPlayedForAsync(player);
+            player.SeasonStatSummary = await PlayerDataAccess.GetSeasonStatsAsync(playerId);
+            isLoading = false;
+        }
+        catch(Exception)
+        {
+            pageError = "Issue loading player information";
+        }
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        await OnInitializedAsync();
+
+    }
+    private async Task OnStatChanged(ChangeEventArgs e)
+    {
+        try
+        {
+            if (Enum.TryParse<StatCategory>(e.Value?.ToString(), out var stat))
+            {
+                selectedStat = stat;
+                bestGameStats = await PlayerDataAccess.GetBestGameStatsAsync(playerId, StatCategoryExtensions.ToSqlValue(selectedStat));
+            }
+        }
+        catch (Exception)
+        {
+            pageError = "Issue loading player information";
+        }
+
+    }
+    private async Task ReloadPlayer(Player updatedPlayer)
+    {
+        player = updatedPlayer;
+        StateHasChanged();
+    }
+    
+}

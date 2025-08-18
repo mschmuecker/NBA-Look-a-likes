@@ -1,0 +1,86 @@
+﻿@page "/team/{teamId:int}"
+@using NBA_App.DTO
+@using NBA_App.Data
+@using NBA_App.Model
+@rendermode InteractiveServer
+@inject TeamDataAccess TeamDataAccess
+
+<h3>Team Overview</h3>
+
+@if (!string.IsNullOrWhiteSpace(pageError))
+{
+    <div class="alert alert-danger d-flex align-items-center" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <div>@pageError</div>
+    </div>
+}
+@if (team == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="card mb-3">
+        <div class="card-body">
+            <h4>@team.TeamCity @team.TeamName (@team.TeamAbbrev)</h4>
+            <p>
+                League: @team.League<br />
+                Founded: @team.History<br />
+            </p>
+        </div>
+    </div>
+
+    <h5>All-Time Record</h5>
+    <p>
+        Games: @record.GamesPlayed | Wins: @record.Wins | Losses: @record.Losses | Win %: @record.WinPercentage.ToString("P1")
+    </p>
+
+    <h5>Top Seasons</h5>
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Season</th>
+                <th>Wins</th>
+                <th>Losses</th>
+                <th>Win %</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var s in topSeasons)
+            {
+                <tr>
+                    <td>@s.Season</td>
+                    <td>@s.Wins</td>
+                    <td>@s.Losses</td>
+                    <td>@s.WinPercentage.ToString("P1")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <h5>Top Players (Career PPG)</h5>
+    <ul>
+        @foreach (var p in topPlayers)
+        {
+            <li><a href="/player/@p.PlayerID">@p.FirstName @p.LastName</a> – PPG: @p.PPG.ToString("0.0")</li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter] public int teamId { get; set; }
+
+    private Team? team;
+    private TeamSummary record = new();
+    private List<TeamRecordSummary> topSeasons = new();
+
+    private string? pageError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        team = await TeamDataAccess.GetTeamInfoAsync(teamId);
+        record = await TeamDataAccess.GetTeamRecord(teamId);
+        topSeasons = await TeamDataAccess.GetTopSeasonsAsync(teamId);
+        topPlayers = await TeamDataAccess.GetTopPlayersAsync(teamId);
+    }
+}

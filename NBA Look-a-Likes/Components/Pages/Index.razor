@@ -1,0 +1,159 @@
+﻿@page "/"
+@using NBA_App.Components.Widgets
+@using NBA_App.DTO
+@using NBA_App.Data
+@using NBA_App.Model
+@rendermode InteractiveServer
+@inject PlayerDataAccess PlayerService
+@inject GameDataAccess GameService
+@inject NavigationManager NavigationManager
+
+<h3>Search Players</h3>
+@if (!string.IsNullOrWhiteSpace(pageError))
+{
+    <div class="alert alert-danger d-flex align-items-center" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <div>@pageError</div>
+    </div>
+}
+@if (isLoading)
+{
+    <div class="text-center my-3">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="container mt-4"> <!-- This limits the page width and centers it -->
+
+        <div class="position-relative">
+            <form @onsubmit="HandleSearch">
+                <input @bind="searchQuery" class="form-control mb-3" placeholder="Search players..." />
+            </form>
+
+            @if (searchResults.Any())
+            {
+                <div class="search-overlay-list position-absolute bg-white shadow rounded w-100 z-3">
+                    @foreach (var player in searchResults)
+                    {
+                        <button type="button"
+                                class="list-group-item list-group-item-action text-start search-result-item"
+                                @onclick="() => GoToPlayerPage(player.PlayerID)">
+                            <div class="fw-semibold fs-6">@player.FirstName @player.LastName</div>
+
+                            <div class="text-muted small">
+                                @(player.LastCollege ?? "N/A")
+                            </div>
+
+                            <div class="text-muted small">
+                                Height: @(player.HeightFormatted ?? "Unknown") |
+                                Weight: @(player.WeightFormatted ?? "Unknown") |
+                                Position: @(player.Position ?? "Unknown")
+                            </div>
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+    
+    <!-- Stat Leader Cards go here -->
+    @if (!isLoading)
+    {
+        <div class="container mt-4">
+            <h5 class="mb-3 text-uppercase text-muted">All-Time Leaders</h5>
+
+            <div class="row row-cols-1 row-cols-md-3 row-cols-xl-6 g-3">
+                <StatLeaderColumn Title="Points" Leaders="pointsLeaders" />
+                <StatLeaderColumn Title="Rebounds" Leaders="reboundLeaders" />
+                <StatLeaderColumn Title="Assists" Leaders="assistLeaders" />
+                <StatLeaderColumn Title="Turnovers" Leaders="turnoverLeaders" />
+                <StatLeaderColumn Title="3PM" Leaders="threesLeaders" Format="0" />
+                <StatLeaderColumn Title="Free Throws" Leaders="ftLeaders" Format="0" />
+            </div>
+        </div>
+    }
+}
+
+
+@code {
+    private string searchQuery = "";
+    private bool initialized;
+    private bool isLoading;
+    private List<Player?> searchResults = new();
+    private HashSet<Player> selectedPlayers = new();
+    private List<Player?> allPlayers = new();
+    private List<StatLeader> reboundLeaders = new();
+    private List<StatLeader> pointsLeaders = new();
+    private List<StatLeader> assistLeaders = new();
+    private List<StatLeader> turnoverLeaders = new();
+    private List<StatLeader> threesLeaders = new();
+    private List<StatLeader> ftLeaders = new();
+    private string? pageError;
+
+
+    protected override async Task OnInitializedAsync() 
+    {
+        try
+        {
+            if (initialized)
+                return;
+            initialized = true;
+            isLoading = true;
+            allPlayers = await PlayerService.GetAll();
+
+            reboundLeaders = await GameService.GetStatLeadersAsync(Enums.StatCategory.RPG);
+            pointsLeaders = await GameService.GetStatLeadersAsync(Enums.StatCategory.PPG);
+            assistLeaders = await GameService.GetStatLeadersAsync(Enums.StatCategory.APG);
+            turnoverLeaders = await GameService.GetStatLeadersAsync(Enums.StatCategory.TOPG);
+            threesLeaders = await GameService.GetStatLeadersAsync(Enums.StatCategory.ThreePM);
+            ftLeaders = await GameService.GetStatLeadersAsync(Enums.StatCategory.FTM);
+            isLoading = false;
+        }
+        catch (Exception)
+        {
+            pageError = "Issue loading information from database";
+        }
+    }
+
+    private void TogglePlayerSelection(Player player)
+    {
+        if (!selectedPlayers.Add(player))
+            selectedPlayers.Remove(player);
+    }
+    private void HandleSearch(EventArgs args)
+    {
+        RunSearch();
+    }
+    private void RunSearch()
+    {
+        if (isLoading || allPlayers == null || allPlayers.Count == 0)
+        {
+            searchResults = new();
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            searchResults = new();
+            return;
+        }
+
+
+        string query = searchQuery.Trim().ToLower();
+
+        searchResults = allPlayers
+            .Where(p =>
+                (!string.IsNullOrEmpty(p.FirstName) && p.FirstName.ToLower().Contains(query)) ||
+                (!string.IsNullOrEmpty(p.LastName) && p.LastName.ToLower().Contains(query)) ||
+                (!string.IsNullOrEmpty(p.FullName) && p.FullName.ToLower().Contains(query)))
+            .ToList();
+
+    }
+    private void GoToPlayerPage(int playerId)
+    {
+        NavigationManager.NavigateTo($"/player/{playerId}");
+    }
+
+}

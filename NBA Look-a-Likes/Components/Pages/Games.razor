@@ -1,0 +1,137 @@
+﻿@page "/games/"
+@using NBA_App.Components.Widgets
+@using NBA_App.DTO
+@using NBA_App.Data
+@inject GameDataAccess GameService
+<h3>Game Logs</h3>
+@if (!string.IsNullOrWhiteSpace(pageError))
+{
+    <div class="alert alert-danger d-flex align-items-center" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <div>@pageError</div>
+    </div>
+}
+<div class="d-flex align-items-end gap-3 mb-3">
+    <div>
+        <label class="form-label">Select Date</label>
+        <InputDate @bind-Value="selectedDate" @bind-Value:after="OnDateChanged" class="form-control"  />
+    </div>
+
+    <div>
+        <button class="btn btn-primary mt-2" @onclick="CreateNewGame">+ New Game</button>
+    </div>
+</div>
+
+@if (games.Any())
+{
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Label</th>
+                <th>Home</th>
+                <th>Away</th>
+                <th>Score</th>
+                <th>Type</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var g in games)
+            {
+                <tr>
+                    <td>@g.GameLabel</td>
+                    <td>@g.HomeTeamName</td>
+                    <td>@g.AwayTeamName</td>
+                    <td>@g.HomeScore - @g.AwayScore</td>
+                    <td>@g.GameType</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="() => ViewGame(g.GameId)">View</button>
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => EditGame(g.GameId)">Edit</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <div class="text-muted">No games found for @selectedDate.ToShortDateString()</div>
+}
+<GameEditModal @bind-Visible="showModal"
+               GameId="selectedGameId"
+               IsNewGame="isNew"
+               isReadOnly="isReadOnly"
+               OnSaved="ReloadGamesForDate" />
+
+@code {
+    private DateTime selectedDate = DateTime.Today;
+    private List<GameSummary> games = new();
+
+    private int? selectedGameId;
+    private bool showModal = false;
+    private bool isNew = false;
+    private bool isReadOnly = false;
+    private string? pageError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadGamesForDate();
+        }
+        catch (Exception)
+        {
+            pageError = "Issue loading information from database";
+        }
+
+    }
+
+    private async Task LoadGamesForDate()
+    {
+        try
+        {
+            games = await GameService.GetGamesOnDate(selectedDate);
+        }
+        catch (Exception)
+        {
+            pageError = "Issue loading information from database";
+        }
+    }
+
+    private async Task ReloadGamesForDate()
+    {
+        await LoadGamesForDate();
+    }
+    private async Task OnDateChanged()
+    {
+
+        await LoadGamesForDate();
+    }
+
+    private void CreateNewGame()
+    {
+        isNew = true;
+        isReadOnly = false;
+        selectedGameId = null;
+        showModal = true;
+    }
+
+    private void EditGame(int gameId)
+    {
+        isNew = false;
+        isReadOnly = false;
+        selectedGameId = gameId;
+        showModal = true;
+    }
+
+    private void ViewGame(int gameId)
+    {
+        // Optionally use same modal in read-only mode or route to a view page
+        isReadOnly = true;
+        isNew = false;
+        selectedGameId = gameId;
+        showModal = true;
+        
+    }
+
+}

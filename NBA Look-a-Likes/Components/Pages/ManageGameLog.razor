@@ -1,0 +1,45 @@
+﻿@* @page "/managegamelogs"
+@using NBA_App.Data
+@using NBA_App.Model
+@rendermode InteractiveServer
+@inject PlayerDataAccess PlayerService
+
+<h3>Manage Game Logs</h3>
+
+<EditForm Model="newPlayer" OnValidSubmit="AddPlayer">
+    <InputText @bind-Value="newPlayer.Name" placeholder="Name" class="form-control mb-2" />
+    <InputText @bind-Value="newPlayer.Team" placeholder="Team" class="form-control mb-2" />
+    <InputText @bind-Value="newPlayer.Position" placeholder="Position" class="form-control mb-2" />
+    <InputNumber @bind-Value="newPlayer.Ppg" placeholder="PPG" class="form-control mb-2" />
+    <InputNumber @bind-Value="newPlayer.Rpg" placeholder="RPG" class="form-control mb-2" />
+    <InputNumber @bind-Value="newPlayer.Apg" placeholder="APG" class="form-control mb-2" />
+    <button type="submit" class="btn btn-primary">Add Player</button>
+</EditForm>
+
+<hr />
+
+<ul>
+    @foreach (var player in PlayerService.GetAll())
+    {
+        <li>
+            @player.Name
+            <button class="btn btn-sm btn-danger ms-2" @onclick="() => DeletePlayer(player.Id)">Delete</button>
+        </li>
+    }
+</ul>
+
+@code {
+    private Player newPlayer = new();
+
+    private void AddPlayer()
+    {
+        PlayerService.AddPlayer(newPlayer);
+        newPlayer = new Player();
+    }
+
+    private void DeletePlayer(int id)
+    {
+        PlayerService.DeletePlayer(id);
+    }
+}
+ *@

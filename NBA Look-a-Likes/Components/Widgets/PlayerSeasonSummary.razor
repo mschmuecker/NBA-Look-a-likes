@@ -1,0 +1,96 @@
+﻿@using NBA_App.DTO
+@using NBA_App.Model
+@using NBA_App.Data
+@inject PlayerDataAccess playerDb
+
+@if(isLoading)
+{
+    <p>Loading information</p>
+}
+else {
+<div class="card mb-4">
+    <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+        <span>Season Stats</span>
+        <small class="text-muted">Click a header to sort</small>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="sortable" @onclick="() => SetSort(Col.Season)">Season @SortIcon(Col.Season)</th>
+                        <th class="sortable" @onclick="() => SetSort(Col.PPG)">PPG @SortIcon(Col.PPG)</th>
+                        <th class="sortable" @onclick="() => SetSort(Col.RPG)">RPG @SortIcon(Col.RPG)</th>
+                        <th class="sortable" @onclick="() => SetSort(Col.APG)">APG @SortIcon(Col.APG)</th>
+                        <th class="sortable" @onclick="() => SetSort(Col.FG)">FG% @SortIcon(Col.FG)</th>
+                        <th class="sortable" @onclick="() => SetSort(Col.TP)">3P% @SortIcon(Col.TP)</th>
+                        <th class="sortable" @onclick="() => SetSort(Col.FT)">FT% @SortIcon(Col.FT)</th>
+                    </tr>
+
+                </thead>
+                <tbody>
+                    @foreach (var s in SortedSeasons)
+                    {
+                        <tr>
+                            <td>@s.Season</td>
+
+                            <td>@s.PPG.ToString("0.0")</td>
+                            <td>@s.RPG.ToString("0.0")</td>
+                            <td>@s.APG.ToString("0.0")</td>
+                            <td>@s.FGPercentage.ToString("P1")</td>
+                            <td>@s.ThreePPercentage.ToString("P1")</td>
+                            <td>@s.FTPercentage.ToString("P1")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+}
+@code {
+    [Parameter] public Player player { get; set; } = new();
+    private enum Col { Season, PPG, RPG, APG, FG, TP, FT }
+    private Col sortCol = Col.Season;
+    private bool sortAsc = false; // latest first
+    private bool isLoading = false;
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+
+        player.SeasonStatSummary = await playerDb.GetSeasonStatsAsync(player.PlayerID);
+
+        isLoading = false;
+    }
+    private void SetSort(Col col)
+    {
+        if (sortCol == col) sortAsc = !sortAsc; else { sortCol = col; sortAsc = true; }
+    }
+
+    private IEnumerable<StatSummary> SortedSeasons =>
+        (sortCol, sortAsc) switch
+        {
+            (Col.Season, true) => player.SeasonStatSummary.OrderBy(s => s.Season),
+            (Col.Season, false) => player.SeasonStatSummary.OrderByDescending(s => s.Season),
+            (Col.PPG, true) => player.SeasonStatSummary.OrderBy(s => s.PPG),
+            (Col.PPG, false) => player.SeasonStatSummary.OrderByDescending(s => s.PPG),
+            (Col.RPG, true) => player.SeasonStatSummary.OrderBy(s => s.RPG),
+            (Col.RPG, false) => player.SeasonStatSummary.OrderByDescending(s => s.RPG),
+            (Col.APG, true) => player.SeasonStatSummary.OrderBy(s => s.APG),
+            (Col.APG, false) => player.SeasonStatSummary.OrderByDescending(s => s.APG),
+            (Col.FG, true) => player.SeasonStatSummary.OrderBy(s => s.FGPercentage),
+            (Col.FG, false) => player.SeasonStatSummary.OrderByDescending(s => s.FGPercentage),
+            (Col.TP, true) => player.SeasonStatSummary.OrderBy(s => s.ThreePPercentage),
+            (Col.TP, false) => player.SeasonStatSummary.OrderByDescending(s => s.ThreePPercentage),
+            (Col.FT, true) => player.SeasonStatSummary.OrderBy(s => s.FTPercentage),
+            _ => player.SeasonStatSummary.OrderByDescending(s => s.FTPercentage)
+        };
+
+    // tiny helper to show an arrow (Bootstrap icons)
+    private MarkupString SortIcon(Col col)
+    {
+        if (sortCol != col) return (MarkupString)@"<span class='text-muted ms-1'>↕</span>";
+        var icon = sortAsc ? "bi-caret-up-fill" : "bi-caret-down-fill";
+        return (MarkupString)$"<i class='bi {icon} ms-1'></i>";
+    }
+}

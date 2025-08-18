@@ -1,0 +1,242 @@
+﻿@using NBA_App.DTO
+@using NBA_App.Data
+@using NBA_App.Model
+@inject GameDataAccess GameDb
+@inject TeamDataAccess TeamDb
+
+@if (Visible)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@((GameId is null ? "New Game" : (isReadOnly ? "View Game" : "Edit Game")))</h5>
+                    <button type="button" class="btn-close" @onclick="Close" />
+                </div>
+
+                <EditForm Model="Model" OnValidSubmit="SaveAsync">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Game Date</label>
+                                <InputDate class="form-control" @bind-Value="GameDate" disabled="@(!isNewGame)" />
+                            </div>
+                         </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Home Team</label>
+                                <InputSelect class="form-select" @bind-Value="Model.HomeTeamId" disabled="@(!isNewGame)"
+                                             @onchange="async _ => await UpdateSelectedTeams()">
+                                    <option value="0">--  Home Team --</option>
+                                    @foreach (var team in allTeams.OrderBy(t => t.TeamCity))
+                                    {
+                                        <option value="@team.TeamID">@team.TeamCity @team.TeamName</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        
+                            <div class="col-md-6">
+                                <label class="form-label">Away Team</label>
+                                <InputSelect class="form-select" @bind-Value="Model.AwayTeamId" disabled="@(!isNewGame)"
+                                             @onchange="async _ => await UpdateSelectedTeams()">
+                                    <option value="0">--  Away Team --</option>
+                                    @foreach (var team in allTeams.OrderBy(t => t.TeamCity))
+                                    {
+                                        <option value="@team.TeamID">@team.TeamCity @team.TeamName</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Home Score</label>
+                                <InputNumber class="form-control" @bind-Value="Model.HomeScore" disabled="@isReadOnly" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Away Score</label>
+                                <InputNumber class="form-control" @bind-Value="Model.AwayScore" disabled="@isReadOnly" />
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Game Type</label>
+                                <InputSelect class="form-select" @bind-Value="Model.GameType" disabled="@isReadOnly">
+                                    <option value="Regular Season">Regular Season</option>
+                                    <option value="Playoffs">Playoffs</option>
+                                    <option value="Preseason">Preseason</option>
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Attendance</label>
+                                <InputNumber class="form-control" @bind-Value="Model.Attendance" disabled="@isReadOnly" />
+                            </div>
+                        </div>
+                        @if (isNewGame && !playersLoaded && !isReadOnly)
+                        {
+                            <div class="mt-3">
+                                <button type="button" class="btn btn-outline-primary" @onclick="LoadTeamRosters" disabled="@(!CanLoadPlayers())">
+                                    Load Players from Rosters
+                                </button>
+                            </div>
+                        }
+
+                        <div class="mt-4">
+                            <h6>Player Stats</h6>
+
+                            <h7>Home Team</h7>
+                            <PlayerGameStatsTable isReadOnly="isReadOnly" players="homeTeamPlayers"/>
+                            
+                            <h7>Away Team</h7>
+                            <PlayerGameStatsTable isReadOnly="isReadOnly" players="awayTeamPlayers"/>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" type="button" @onclick="Close">Close</button>
+
+                        @if (!isReadOnly)
+                        {
+                            <button class="btn btn-primary" type="submit">Save</button>
+                        }
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    [Parameter] public int? GameId { get; set; }
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public bool isNewGame { get; set; }
+    [Parameter] public bool isReadOnly { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter] public EventCallback<GameEditModel> OnSaved { get; set; }
+
+    private List<Team> allTeams = new();
+    private bool playersLoaded = false;
+    private List<PlayerGameRow> homeTeamPlayers { get; set; } = new();
+    private List<PlayerGameRow> awayTeamPlayers { get; set; } = new();
+    private List<Player> allHomePlayers { get; set; } = new();
+    private List<Player> allAwayPlayers { get; set; } = new();
+   
+
+    private GameEditModel Model = new();
+    private DateTime gameDate;
+
+    private DateTime GameDate
+    {
+        get => gameDate;
+        set
+        {
+            if (gameDate != value)
+            {
+                gameDate = value;
+                Model.GameDate = value;
+                //_ = LoadTeamRostersIfNeeded();
+            }
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (GameId is null)
+        {
+            Model = new GameEditModel();
+            GameDate = DateTime.Today;
+            playersLoaded = false;
+            homeTeamPlayers.Clear();
+            awayTeamPlayers.Clear();
+            if(allTeams.Count==0)
+            {
+                allTeams = await TeamDb.GetTeamsOnDateAsync((short)Model.GameDate.Year);
+            }
+        }
+        else
+        {
+            Model = await GameDb.LoadGameForEditAsync(GameId.Value);
+            Model.Players = await GameDb.LoadPlayerGameInfoAsync(GameId.Value);
+
+            Model.HomeTeam = await TeamDb.GetTeamInfoAsync(Model.HomeTeamId);
+            Model.AwayTeam = await TeamDb.GetTeamInfoAsync(Model.AwayTeamId);
+            
+
+            homeTeamPlayers = Model.Players.Where(r => r.Home).ToList();
+            awayTeamPlayers = Model.Players.Where(r => !r.Home).ToList();
+
+
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (isReadOnly)
+            return;
+        if (GameId is null)
+        {
+            //save the rows into the Model
+            Model.Players = homeTeamPlayers.Concat(awayTeamPlayers).ToList();
+            Model.HomeTeam = await TeamDb.GetTeamInfoAsync(Model.HomeTeamId);
+            Model.AwayTeam = await TeamDb.GetTeamInfoAsync(Model.AwayTeamId);
+
+            Model.GameId = await GameDb.InsertGameAsync(Model);
+        }
+        else
+        {
+            await GameDb.UpdateGameAsync(Model);
+        }
+        await OnSaved.InvokeAsync(Model);
+        await VisibleChanged.InvokeAsync(false);
+    }
+
+    private async Task Close()
+    {
+        await VisibleChanged.InvokeAsync(false);
+    }
+
+    private bool CanLoadPlayers()
+    {
+        return Model.HomeTeamId > 0 && Model.AwayTeamId > 0 && Model.GameDate != default;
+    }
+    private async Task LoadTeamRosters()
+    {
+        if (!CanLoadPlayers()) return;
+
+        allHomePlayers = await TeamDb.GetPlayersOnTeam(Model.HomeTeamId, (short)Model.GameDate.Year);
+        allAwayPlayers = await TeamDb.GetPlayersOnTeam(Model.AwayTeamId, (short)Model.GameDate.Year);
+
+        homeTeamPlayers = allHomePlayers.Select(p => new PlayerGameRow
+        {
+            PersonId = p.PlayerID,
+            Home = true,
+            Player = p
+        }).ToList();
+
+        awayTeamPlayers = allAwayPlayers.Select(p => new PlayerGameRow
+        {
+            PersonId = p.PlayerID,
+            Home = false,
+            Player = p
+        }).ToList();
+
+        // Merge into model
+        Model.Players = homeTeamPlayers.Concat(awayTeamPlayers).ToList();
+        playersLoaded = true;
+    }
+    private async Task UpdateSelectedTeams()
+    {
+        if (Model.HomeTeamId > 0)
+        {
+            Model.HomeTeam = await TeamDb.GetTeamInfoAsync(Model.HomeTeamId);
+        }
+
+        if (Model.AwayTeamId > 0)
+        {
+            Model.AwayTeam = await TeamDb.GetTeamInfoAsync(Model.AwayTeamId);
+        }
+    }
+
+
+}

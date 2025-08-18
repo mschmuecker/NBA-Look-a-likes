@@ -1,0 +1,33 @@
+﻿@using NBA_App.DTO
+@using NBA_App.Model
+@using Microsoft.AspNetCore.Components
+
+<div class="card h-100">
+    <div class="card-body">
+        <h6 class="card-title text-center">@Title</h6>
+        @if (Leaders?.Any() == true)
+        {
+            @for (int i = 0; i < Leaders.Count; i++)
+            {
+                var player = Leaders[i];
+                <div class="border-bottom py-1">
+                    <a href="@($"/player/{player.Player.PlayerID}")" class="fw-semibold @(i == 0 ? "text-primary" : "")">
+                        @player.Player.FullName
+                    </a><br />
+                    <small class="text-muted">@player.Stat.ToString(Format)</small>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="text-muted text-center small">No data</div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public List<StatLeader> Leaders { get; set; } = new();
+    [Parameter] public string Format { get; set; } = "0";
+
+}

@@ -1,0 +1,21 @@
+﻿@using NBA_App.Model
+<div class="container">
+    <div class="row">
+        @foreach (var player in Players)
+        {
+            <div class="col-md-6">
+                <div class="card mb-3">
+            <PlayerBio player="player"/>
+            <PlayerCareerSummary player="player"/>
+            <PlayerSeasonSummary player="player"/>
+            </div>
+            </div>
+        }
+    </div>
+</div>
+
+
+@code {
+    [Parameter] public List<Player> Players { get; set; } = new();
+
+}

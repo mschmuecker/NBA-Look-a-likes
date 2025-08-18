@@ -1,0 +1,59 @@
+﻿@using NBA_App.DTO
+
+
+<div class="table-responsive">
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Min</th>
+                <th>PTS</th>
+                <th>REB</th>
+                <th>AST</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in players)
+            {
+                <tr>
+                    <td>
+                        <input type="text"
+                               class="form-control form-control-sm"
+                               value="@row.Player?.FullName"
+                               readonly />
+                    </td>
+
+                    <td>
+                        <InputNumber class="form-control form-control-sm"
+                                     @bind-Value="row.Minutes"
+                                     disabled="@isReadOnly" />
+                    </td>
+                    <td>
+                        <InputNumber class="form-control form-control-sm"
+                                     @bind-Value="row.Points"
+                                     disabled="@isReadOnly" />
+                    </td>
+                    <td>
+                        <InputNumber class="form-control form-control-sm"
+                                     @bind-Value="row.ReboundsTotal"
+                                     disabled="@isReadOnly" />
+                    </td>
+                    <td>
+                        <InputNumber class="form-control form-control-sm"
+                                     @bind-Value="row.Assists"
+                                     disabled="@isReadOnly" />
+                    </td>
+
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    [Parameter] public List<PlayerGameRow>? players { get; set; }
+    [Parameter] public bool isReadOnly {get;set;}
+
+
+}

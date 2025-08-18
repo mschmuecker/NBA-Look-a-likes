@@ -1,0 +1,154 @@
+﻿@using NBA_App.DTO
+@using NBA_App.Model
+@using NBA_App.Data
+@inject PlayerDataAccess PlayerService
+
+@if (Visible && Form is not null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Player</h5>
+                    <button type="button" class="btn-close" @onclick="OnCancel"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label>First Name</label>
+                        <input class="form-control" @bind="Form.FirstName" />
+                    </div>
+                    <div class="mb-2">
+                        <label>Last Name</label>
+                        <input class="form-control" @bind="Form.LastName" />
+                    </div>
+                    <div class="mb-2">
+                        <label>Height</label>
+                        <div class="d-flex gap-2">
+                            <InputNumber class="form-control" @bind-Value="Form.HeightFeet" placeholder="ft" />
+                            <span class="mt-2">ft</span>
+
+                            <InputNumber class="form-control" @bind-Value="Form.HeightInches" placeholder="in" />
+                            <span class="mt-2">in</span>
+                        </div>
+                        @* <ValidationMessage For="() => Form.HeightFeet" />
+                        <ValidationMessage For="() => Form.HeightInches" /> *@
+                    </div>
+
+                    <div class="mb-2">
+                        <label>Weight (lbs)</label>
+                        <InputNumber class="form-control" @bind-Value="Form.Weight" />
+                        @* <ValidationMessage For="() => Form.Weight" /> *@
+                    </div>
+                    <div class="mb-2">
+                        <label>Position</label>
+                        <select class="form-select" @bind="Form.Position">
+                            @foreach (var pos in Positions)
+                            {
+                                <option value="@pos">@pos</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label>College</label>
+                        <input class="form-control" @bind="Form.College">
+                       
+                        </input>
+                    </div>
+                    <div class="mb-2">
+                        <label>Draft Year</label>
+                        <input class="form-control" @bind="Form.DraftYear" />
+                    </div>
+                    <div class="mb-2">
+                        <label>Draft Round</label>
+                        <input class="form-control" @bind="Form.DraftRound" />
+                    </div>
+                    <div class="mb-2">
+                        <label>Draft Number</label>
+                        <input class="form-control" @bind="Form.DraftNumber" />
+                    </div>
+
+                    @if (Saved)
+                    {
+                        <div class="alert alert-success mt-3" role="alert">
+                            ✅ Player updated successfully!
+                        </div>
+                    }
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SavePlayerAsync">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+
+    [Parameter] public Player Player { get; set; } = new();
+    [Parameter] public EventCallback<Player> OnSaved { get; set; }
+
+    private Player EditablePlayer = new();
+    private Player OriginalPlayer = new();
+    private bool Saved = false;
+    private PlayerEditModel Form = new();
+    private EditContext? editContext;
+
+    private readonly List<string> Positions = new() { "Guard", "Forward", "Center"};
+
+
+    protected override void OnParametersSet()
+    {
+        Form ??= new PlayerEditModel();
+        if (Player is null)
+            return;
+
+        Form = new PlayerEditModel
+        {
+            FirstName = Player.FirstName,
+            LastName = Player.LastName,
+            Position = Player.Position,
+            College = Player.LastCollege,
+            DraftYear = Player.DraftYear == 0 ? null : Player.DraftYear,
+            DraftRound = Player.DraftRound == 0 ? null : Player.DraftRound,
+            DraftNumber = Player.DraftNumber == 0 ? null : Player.DraftNumber,
+            HeightFeet = Player.Height / 12,
+            HeightInches = Player.Height % 12,
+            Weight = Player.Weight == 0 ? 0 : Player.Weight
+        };
+        editContext = new EditContext(Form);
+    }
+
+    private async Task SavePlayerAsync()
+    {
+        if (editContext is not null && editContext.Validate())
+        {
+            // map back to your Player and save
+            Player.FirstName = Form.FirstName;
+            Player.LastName = Form.LastName;
+            Player.Position = Form.Position;
+            Player.LastCollege = Form.College;
+            Player.DraftYear = Form.DraftYear ?? 0;
+            Player.DraftRound = Form.DraftRound ?? 0;
+            Player.DraftNumber = Form.DraftNumber ?? 0;
+            Player.Height = (Form.HeightFeet ?? 0) * 12 + (Form.HeightInches ?? 0);
+            Player.Weight = Form.Weight ?? 0;
+
+            await PlayerService.UpdatePlayerAsync(Player);
+            // close modal, toast, etc.
+        }
+        
+        await OnSaved.InvokeAsync(Player);
+        await Task.Delay(1500); // short delay before closing
+        await VisibleChanged.InvokeAsync(false);
+    }
+
+    private async Task OnCancel()
+    {
+        await VisibleChanged.InvokeAsync(false);
+    }
+}
