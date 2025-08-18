@@ -44,11 +44,6 @@ else {
     {
         isLoading = true;
 
-        // if (player?.CollegeID != null)
-        // {
-        //     college = await PlayerDataAccess.GetCollegeByIdAsync(player.CollegeID.Value);
-        // }
-
         player.CareerStatSummary = await playerDb.GetCareerStatsAsync(player.PlayerID);
 
         isLoading = false;

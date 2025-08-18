@@ -4,7 +4,7 @@
 @inject GameDataAccess GameDb
 @inject TeamDataAccess TeamDb
 
-@if (Visible)
+@if (Visible && editContext is not null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
         <div class="modal-dialog modal-lg">
@@ -14,7 +14,7 @@
                     <button type="button" class="btn-close" @onclick="Close" />
                 </div>
 
-                <EditForm Model="Model" OnValidSubmit="SaveAsync">
+                <EditForm EditContext ="editContext" OnValidSubmit="SaveAsync">
                     <DataAnnotationsValidator />
                     <div class="modal-body">
                         <div class="row g-3">
@@ -34,6 +34,7 @@
                                         <option value="@team.TeamID">@team.TeamCity @team.TeamName</option>
                                     }
                                 </InputSelect>
+                                <ValidationMessage For="() => Model.HomeTeamId" />
                             </div>
                         
                             <div class="col-md-6">
@@ -46,16 +47,20 @@
                                         <option value="@team.TeamID">@team.TeamCity @team.TeamName</option>
                                     }
                                 </InputSelect>
+                                <ValidationMessage For="() => Model.AwayTeamId" />
+
                             </div>
                         </div>
                         <div class="row g-3">
                             <div class="col-md-3">
                                 <label class="form-label">Home Score</label>
                                 <InputNumber class="form-control" @bind-Value="Model.HomeScore" disabled="@isReadOnly" />
+                                <ValidationMessage For="() => Model.HomeScore" />
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Away Score</label>
                                 <InputNumber class="form-control" @bind-Value="Model.AwayScore" disabled="@isReadOnly" />
+                                <ValidationMessage For="() => Model.AwayScore" />
                             </div>
                         </div>
                         <div class="row g-3">
@@ -70,6 +75,7 @@
                             <div class="col-md-6">
                                 <label class="form-label">Attendance</label>
                                 <InputNumber class="form-control" @bind-Value="Model.Attendance" disabled="@isReadOnly" />
+                                <ValidationMessage For="() => Model.Attendance" />
                             </div>
                         </div>
                         @if (isNewGame && !playersLoaded && !isReadOnly)
@@ -85,10 +91,14 @@
                             <h6>Player Stats</h6>
 
                             <h7>Home Team</h7>
-                            <PlayerGameStatsTable isReadOnly="isReadOnly" players="homeTeamPlayers"/>
-                            
+                            <CascadingValue Value="editContext">
+                                <PlayerGameStatsTable isReadOnly="isReadOnly" players="homeTeamPlayers"/>
+                            </CascadingValue>
                             <h7>Away Team</h7>
-                            <PlayerGameStatsTable isReadOnly="isReadOnly" players="awayTeamPlayers"/>
+                            <CascadingValue Value="editContext">
+                                <PlayerGameStatsTable isReadOnly="isReadOnly" players="awayTeamPlayers"/>
+                            </CascadingValue>
+
                         </div>
                     </div>
 
@@ -97,7 +107,7 @@
 
                         @if (!isReadOnly)
                         {
-                            <button class="btn btn-primary" type="submit">Save</button>
+                            <button class="btn btn-primary" disabled="@( !isValid )" type="submit">Save</button>
                         }
                     </div>
                 </EditForm>
@@ -121,7 +131,9 @@
     private List<PlayerGameRow> awayTeamPlayers { get; set; } = new();
     private List<Player> allHomePlayers { get; set; } = new();
     private List<Player> allAwayPlayers { get; set; } = new();
-   
+    private EditContext editContext;
+    private bool isValid { get; set; } = true;
+
 
     private GameEditModel Model = new();
     private DateTime gameDate;
@@ -135,16 +147,25 @@
             {
                 gameDate = value;
                 Model.GameDate = value;
-                //_ = LoadTeamRostersIfNeeded();
             }
         }
     }
+   
 
     protected override async Task OnParametersSetAsync()
     {
-        if (GameId is null)
+        if (Model is null)
         {
             Model = new GameEditModel();
+        }
+        editContext = new EditContext(Model);
+        editContext.OnValidationStateChanged += (sender, args) =>
+        {
+            isValid = !editContext.GetValidationMessages().Any();
+            StateHasChanged();
+        };
+        if (GameId is null)
+        {
             GameDate = DateTime.Today;
             playersLoaded = false;
             homeTeamPlayers.Clear();
@@ -161,13 +182,19 @@
 
             Model.HomeTeam = await TeamDb.GetTeamInfoAsync(Model.HomeTeamId);
             Model.AwayTeam = await TeamDb.GetTeamInfoAsync(Model.AwayTeamId);
-            
+
 
             homeTeamPlayers = Model.Players.Where(r => r.Home).ToList();
             awayTeamPlayers = Model.Players.Where(r => !r.Home).ToList();
-
-
+            editContext = new EditContext(Model);
+            editContext.OnValidationStateChanged += (_, __) =>
+            {
+                isValid = !editContext.GetValidationMessages().Any();
+                InvokeAsync(StateHasChanged);
+            };
         }
+        StateHasChanged();
+        
     }
 
     private async Task SaveAsync()

@@ -38,11 +38,18 @@ else
                 </div>
 
                 <!-- All-time record pill -->
-                <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill">
+                <span class="badge rounded-pill bg-secondary">
                     @record.Wins-@record.Losses
                     @if (record.WinPercentage.HasValue)
                     {
-                        <span class="ms-1">(@record.WinPercentage.Value.ToString("P1"))</span>
+                        <span class="mx-1">(@record.WinPercentage.Value.ToString("P1"))</span>
+                    }
+                    else
+                    {
+                        <div class="alert alert-danger d-flex align-items-center" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <div>No game level data found</div>
+                        </div>
                     }
                 </span>
             </div>
@@ -88,37 +95,49 @@ else
 
     <h5>Seasons</h5>
     <div class="card">
-    <table class="table table-sm">
-        <thead>
-            <tr>
-                <th>Season</th>
-                <th>Wins</th>
-                <th>Losses</th>
-                <th>Win %</th>
-                <th>Points Per Game</th>
-                <th>Points Allowed per Game</th>
-                
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var s in seasonRecords.OrderByDescending(r => r.Season))
-            {
+        @if(seasonRecords.Count>0)
+        {
+        <table class="table table-sm">
+            <thead>
                 <tr>
-                    <td>@s.Season</td>
-                    <td>@s.Wins</td>
-                    <td>@s.Losses</td>
-                    <td>@s.WinPercentage?.ToString("P1")</td>
-                    <td>@s.PPG?.ToString("0.0")</td>
-                    <td>@s.PointsAllowed?.ToString("0.0")</td>
-                    
+                    <th>Season</th>
+                    <th>Wins</th>
+                    <th>Losses</th>
+                    <th>Win %</th>
+                    <th>Points Per Game</th>
+                    <th>Points Allowed per Game</th>
+                
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var s in seasonRecords.OrderByDescending(r => r.Season))
+                {
+                    <tr>
+                        <td>@s.Season</td>
+                        <td>@s.Wins</td>
+                        <td>@s.Losses</td>
+                        <td>@s.WinPercentage?.ToString("P1")</td>
+                        <td>@s.PPG?.ToString("0.0")</td>
+                        <td>@s.PointsAllowed?.ToString("0.0")</td>
+                    
+                    </tr>
+                }
+            </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="alert alert-danger d-flex align-items-center" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <div>No season level data found</div>
+            </div>
+        }
     </div>
 
     <h5>Players on Team</h5>
     <div class="card">
+        @if(players.Count>0) 
+        {
     <div class="search-overlay-list position-absolute bg-white shadow rounded w-100 z-3">
         @foreach (var player in players)
         {
@@ -138,7 +157,15 @@ else
                 </div>
             </button>
         }
-    </div>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-danger d-flex align-items-center" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <div>No player data found</div>
+            </div>
+        }
     </div>
 
  

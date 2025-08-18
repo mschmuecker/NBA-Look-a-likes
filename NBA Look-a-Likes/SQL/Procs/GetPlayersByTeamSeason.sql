@@ -2,7 +2,7 @@ SET QUOTED_IDENTIFIER ON;
 GO
 CREATE OR ALTER PROCEDURE dbo.GetPlayersByTeamSeason
     @TeamId int,
-    @Season int
+    @Season smallint
 AS
 BEGIN
     SET NOCOUNT ON;

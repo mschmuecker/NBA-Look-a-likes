@@ -44,8 +44,8 @@ namespace NBA_App.Data
             using SqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
 
-            string sql = File.ReadAllText("SQL/GetTeam.sql");
-            using SqlCommand cmd = new(sql, conn);
+            using SqlCommand cmd = new("dbo.GetTeamById", conn);
+            cmd.CommandType = System.Data.CommandType.StoredProcedure;
             cmd.Parameters.AddWithValue("@teamId", teamId);
             bool first = true;
             Team team = new Team { TeamID = teamId };

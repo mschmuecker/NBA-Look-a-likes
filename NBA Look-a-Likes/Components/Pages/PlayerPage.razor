@@ -134,9 +134,16 @@ else
     @if (player.CareerStatSummary != null)
     {
         <PlayerCareerSummary player="player" />
-     
+
     }
-   @if(player.SeasonStatSummary != null) 
+    else
+    {
+        <div class="alert alert-danger d-flex align-items-center" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <div>No game level data found</div>
+        </div>
+    }
+    @if(player.SeasonStatSummary != null && player.SeasonStatSummary.Count>0) 
    {
     
         <PlayerSeasonSummary player ="player"/>

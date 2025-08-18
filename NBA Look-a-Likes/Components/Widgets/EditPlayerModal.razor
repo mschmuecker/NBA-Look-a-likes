@@ -12,7 +12,10 @@
                     <h5 class="modal-title">Edit Player</h5>
                     <button type="button" class="btn-close" @onclick="OnCancel"></button>
                 </div>
-
+                <EditForm EditContext="editContext">
+                    <DataAnnotationsValidator />
+                    @* Optional summary *@
+                    @* <ValidationSummary /> *@
                 <div class="modal-body">
                     <div class="mb-2">
                         <label>First Name</label>
@@ -31,14 +34,14 @@
                             <InputNumber class="form-control" @bind-Value="Form.HeightInches" placeholder="in" />
                             <span class="mt-2">in</span>
                         </div>
-                        @* <ValidationMessage For="() => Form.HeightFeet" />
-                        <ValidationMessage For="() => Form.HeightInches" /> *@
+                        <ValidationMessage For="() => Form.HeightFeet" />
+                        <ValidationMessage For="() => Form.HeightInches" />
                     </div>
 
                     <div class="mb-2">
                         <label>Weight (lbs)</label>
                         <InputNumber class="form-control" @bind-Value="Form.Weight" />
-                        @* <ValidationMessage For="() => Form.Weight" /> *@
+                        <ValidationMessage For="() => Form.Weight" />
                     </div>
                     <div class="mb-2">
                         <label>Position</label>
@@ -57,15 +60,18 @@
                     </div>
                     <div class="mb-2">
                         <label>Draft Year</label>
-                        <input class="form-control" @bind="Form.DraftYear" />
+                        <InputNumber class="form-control" @bind-Value="Form.DraftYear" />
+                            <ValidationMessage For="() => Form.DraftYear" />
                     </div>
                     <div class="mb-2">
                         <label>Draft Round</label>
-                        <input class="form-control" @bind="Form.DraftRound" />
+                        <InputNumber class="form-control" @bind-Value="Form.DraftRound" />
+                            <ValidationMessage For="() => Form.DraftRound" />
                     </div>
                     <div class="mb-2">
                         <label>Draft Number</label>
-                        <input class="form-control" @bind="Form.DraftNumber" />
+                        <InputNumber class="form-control" @bind-Value="Form.DraftNumber" />
+                            <ValidationMessage For="() => Form.DraftNumber" />
                     </div>
 
                     @if (Saved)
@@ -75,10 +81,11 @@
                         </div>
                     }
                 </div>
+                </EditForm>
 
                 <div class="modal-footer">
                     <button class="btn btn-secondary" @onclick="OnCancel">Cancel</button>
-                    <button class="btn btn-primary" @onclick="SavePlayerAsync">Save</button>
+                    <button class="btn btn-primary" disabled="@(!isValid)" @onclick="SavePlayerAsync">Save</button>
                 </div>
             </div>
         </div>
@@ -97,6 +104,7 @@
     private bool Saved = false;
     private PlayerEditModel Form = new();
     private EditContext? editContext;
+    private bool isValid = true;
 
     private readonly List<string> Positions = new() { "Guard", "Forward", "Center"};
 
@@ -116,11 +124,18 @@
             DraftYear = Player.DraftYear == 0 ? null : Player.DraftYear,
             DraftRound = Player.DraftRound == 0 ? null : Player.DraftRound,
             DraftNumber = Player.DraftNumber == 0 ? null : Player.DraftNumber,
-            HeightFeet = Player.Height / 12,
+            HeightFeet = Math.Floor(Player.Height / 12),
             HeightInches = Player.Height % 12,
             Weight = Player.Weight == 0 ? 0 : Player.Weight
         };
         editContext = new EditContext(Form);
+
+        // Subscribe to validation changes
+        editContext.OnValidationStateChanged += (sender, args) =>
+        {
+            isValid = !editContext.GetValidationMessages().Any();
+            StateHasChanged();
+        };
     }
 
     private async Task SavePlayerAsync()
