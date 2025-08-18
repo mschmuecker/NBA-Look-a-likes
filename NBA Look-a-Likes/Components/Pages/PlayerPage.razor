@@ -153,8 +153,6 @@ else
 
     private Player? player;
     bool isLoading;
-    private College? college;
-    private StatSummary? careerStats;
     private List<Player> similarPlayers = new();
     private List<BestGameStats> bestGameStats = new();
     private List<PlayedFor> teamsPlayedFor = new();
@@ -162,8 +160,6 @@ else
     private bool showEditModal = false;
     private Player editPlayer = new();
     private enum Col { Season, PPG, RPG, APG, FG, TP, FT }
-    private Col sortCol = Col.Season;
-    private bool sortAsc = false; // latest first
     private string? pageError;
 
     protected override async Task OnInitializedAsync()

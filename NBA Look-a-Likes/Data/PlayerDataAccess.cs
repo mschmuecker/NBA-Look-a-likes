@@ -252,7 +252,7 @@
             while (reader.Read())
             {
                 var PlayerID = SQLRead.GetSafeInt(reader, "personId");
-                Player player = await GetPlayerByIdAsync(PlayerID);
+                Player? player = await GetPlayerByIdAsync(PlayerID);
                 player.CareerStatSummary = new StatSummary();
                 player.CareerStatSummary.PPG = SQLRead.GetSafeDouble(reader, "PPG");
                 player.CareerStatSummary.RPG = SQLRead.GetSafeDouble(reader, "RPG");
