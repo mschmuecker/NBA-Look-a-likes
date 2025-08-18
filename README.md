@@ -1,7 +1,8 @@
 # NBA Look-a-Likes
 PreReqs:
+- Use windows
 - Install SSMS and SQL Server
-- Have dotnet installed from command line at the very least
+- Have dotnet installed 
     - check using dotnet --version - if you get an output then you are okay (you need version >8)
     - You can download the latest .NET SDK from: https://dotnet.microsoft.com/en-us/download
 
