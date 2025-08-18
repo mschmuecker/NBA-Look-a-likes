@@ -1,6 +1,6 @@
 SET QUOTED_IDENTIFIER ON
 GO
-ALTER   PROCEDURE [dbo].[GetSimilarPlayersByStats]
+CREATE OR ALTER   PROCEDURE [dbo].[GetSimilarPlayersByStats]
     @PlayerId int,
     @Top int = 5
 AS
