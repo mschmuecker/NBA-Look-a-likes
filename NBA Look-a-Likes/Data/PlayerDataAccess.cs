@@ -31,8 +31,7 @@
             using SqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
 
-            string sql = File.ReadAllText("SQL/AllPlayers.sql");
-            using SqlCommand cmd = new(sql, conn);
+            using SqlCommand cmd = new("SELECT * FROM dbo.Players", conn);
             List<Player> players = new();
 
             using var reader = await cmd.ExecuteReaderAsync();
@@ -52,7 +51,6 @@
         public async Task UpdatePlayerAsync(Player player)
         {
             using var conn = new SqlConnection(_connectionString);
-            string sql = File.ReadAllText("SQL/UpdatePlayer.sql");
             using SqlCommand cmd = new("dbo.UpdatePlayer", conn);
             cmd.CommandType = System.Data.CommandType.StoredProcedure;
             cmd.Parameters.AddWithValue("@PlayerId", player.PlayerID);

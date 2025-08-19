@@ -238,8 +238,7 @@ namespace NBA_App.Data
             using SqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
 
-            string sql = File.ReadAllText("SQL/LoadGame.sql");
-            using SqlCommand cmd = new(sql, conn);
+            using SqlCommand cmd = new("SELECT * FROM Game WHERE @gameId = gameId", conn);
             cmd.Parameters.AddWithValue("@gameId", gameId);
 
             using var reader = await cmd.ExecuteReaderAsync();

@@ -92,11 +92,11 @@
 
                             <h7>Home Team</h7>
                             <CascadingValue Value="editContext">
-                                <PlayerGameStatsTable isReadOnly="isReadOnly" players="homeTeamPlayers"/>
+                                <PlayerGameStatsTable isReadOnly="@isReadOnly" players="@homeTeamPlayers"/>
                             </CascadingValue>
                             <h7>Away Team</h7>
                             <CascadingValue Value="editContext">
-                                <PlayerGameStatsTable isReadOnly="isReadOnly" players="awayTeamPlayers"/>
+                                <PlayerGameStatsTable isReadOnly="@isReadOnly" players="@awayTeamPlayers"/>
                             </CascadingValue>
 
                         </div>
@@ -150,50 +150,58 @@
             }
         }
     }
-   
+
 
     protected override async Task OnParametersSetAsync()
     {
-        if (Model is null)
-        {
-            Model = new GameEditModel();
-        }
-        editContext = new EditContext(Model);
-        editContext.OnValidationStateChanged += (sender, args) =>
-        {
-            isValid = !editContext.GetValidationMessages().Any();
-            StateHasChanged();
-        };
-        if (GameId is null)
-        {
-            GameDate = DateTime.Today;
-            playersLoaded = false;
-            homeTeamPlayers.Clear();
-            awayTeamPlayers.Clear();
-            if(allTeams.Count==0)
+        try {
+            if (Model is null)
             {
-                allTeams = await TeamDb.GetTeamsOnDateAsync((short)Model.GameDate.Year);
+                Model = new GameEditModel();
             }
-        }
-        else
-        {
-            Model = await GameDb.LoadGameForEditAsync(GameId.Value);
-            Model.Players = await GameDb.LoadPlayerGameInfoAsync(GameId.Value);
-
-            Model.HomeTeam = await TeamDb.GetTeamInfoAsync(Model.HomeTeamId);
-            Model.AwayTeam = await TeamDb.GetTeamInfoAsync(Model.AwayTeamId);
-
-
-            homeTeamPlayers = Model.Players.Where(r => r.Home).ToList();
-            awayTeamPlayers = Model.Players.Where(r => !r.Home).ToList();
             editContext = new EditContext(Model);
-            editContext.OnValidationStateChanged += (_, __) =>
+            editContext.OnValidationStateChanged += (sender, args) =>
             {
                 isValid = !editContext.GetValidationMessages().Any();
-                InvokeAsync(StateHasChanged);
+                StateHasChanged();
             };
+            if (GameId is null)
+            {
+                GameDate = DateTime.Today;
+                playersLoaded = false;
+                homeTeamPlayers.Clear();
+                awayTeamPlayers.Clear();
+                if (allTeams.Count == 0)
+                {
+                    allTeams = await TeamDb.GetTeamsOnDateAsync((short)Model.GameDate.Year);
+                }
+            }
+            else
+            {
+                Model = await GameDb.LoadGameForEditAsync(GameId.Value);
+                Model.Players = await GameDb.LoadPlayerGameInfoAsync(GameId.Value);
+
+                Model.HomeTeam = await TeamDb.GetTeamInfoAsync(Model.HomeTeamId);
+                Model.AwayTeam = await TeamDb.GetTeamInfoAsync(Model.AwayTeamId);
+
+
+                homeTeamPlayers = Model.Players.Where(r => r.Home).ToList();
+                awayTeamPlayers = Model.Players.Where(r => !r.Home).ToList();
+                editContext = new EditContext(Model);
+                editContext.OnValidationStateChanged += (_, __) =>
+                {
+                    isValid = !editContext.GetValidationMessages().Any();
+                    InvokeAsync(StateHasChanged);
+                };
+            }
+            StateHasChanged();
         }
-        StateHasChanged();
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+
+        }
+    
         
     }
 

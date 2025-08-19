@@ -133,7 +133,7 @@ else
     
     @if (player.CareerStatSummary != null)
     {
-        <PlayerCareerSummary player="player" />
+        <PlayerCareerSummary player="@player" />
 
     }
     else
@@ -146,10 +146,10 @@ else
     @if(player.SeasonStatSummary != null && player.SeasonStatSummary.Count>0) 
    {
     
-        <PlayerSeasonSummary player ="player"/>
+        <PlayerSeasonSummary player ="@player"/>
 
    }
-    <EditPlayerModal Player="player"
+    <EditPlayerModal Player="@player"
                  Visible="@showEditModal"
                  VisibleChanged="@(v => showEditModal = v)"
                  OnSaved="ReloadPlayer" />

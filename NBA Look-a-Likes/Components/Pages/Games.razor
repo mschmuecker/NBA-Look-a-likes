@@ -57,10 +57,10 @@ else
 {
     <div class="text-muted">No games found for @selectedDate.ToShortDateString()</div>
 }
-<GameEditModal @bind-Visible="showModal"
-               GameId="selectedGameId"
-               IsNewGame="isNew"
-               isReadOnly="isReadOnly"
+<GameEditModal @bind-Visible="@showModal"
+               GameId="@selectedGameId"
+               IsNewGame="@isNew"
+               isReadOnly="@isReadOnly"
                OnSaved="ReloadGamesForDate" />
 
 @code {

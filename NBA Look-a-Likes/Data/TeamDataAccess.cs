@@ -23,8 +23,8 @@ namespace NBA_App.Data
             using SqlConnection conn = new(_connectionString);
             await conn.OpenAsync();
 
-            string sql = File.ReadAllText("SQL/GetAllTeams.sql");
-            using SqlCommand cmd = new(sql, conn);
+            using SqlCommand cmd = new("SELECT DISTINCT teamId FROM dbo.Team " +
+                "WHERE seasonActiveTill>YEAR(GETDATE())", conn);
 
             using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
